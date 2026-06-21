@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+image_map.json
+frontend/uploads/*
+!frontend/uploads/.gitkeep
+*.bak
+artifacts/

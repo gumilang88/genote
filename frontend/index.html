@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Genote</title>
+  <meta name="description" content="Your private journal on GenLayer">
+  <meta property="og:title" content="Genote">
+  <meta property="og:description" content="Your private journal on GenLayer">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23111' stroke-width='2'><path d='M12 1l9 4-9 4-9-4 9-4z'/><path d='M3 10l9 4 9-4'/><path d='M3 18l9 4 9-4'/><path d='M3 14l9 4 9-4'/></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Cutive+Mono&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f0e6; --text: #1a1a1a; --surface: rgba(255,255,255,0.85);
+      --border: #c8bfb0; --border-light: #d8d0c0;
+      --muted: #6b6b6b; --muted-light: #8a8a8a; --accent: #111;
+      --invert: #f5f0e6; --shadow: rgba(0,0,0,0.06);
+      --alert-bg-err: #fff0f0; --alert-bg-ok: #f0fff4; --alert-bg-info: #f5f3ff;
+      --alert-border-err: #dc2626; --alert-border-ok: #16a34a; --alert-border-info: #7c3aed;
+      --entry-hover: rgba(0,0,0,0.03);
+    }
+    .dark { --bg: #232323; --text: #d8d4c8; --surface: rgba(255,255,255,0.06);
+      --border: #4a4a4a; --border-light: #3a3a3a; --muted: #a0a0a0; --muted-light: #7a7a7a;
+      --accent: #e0dcd0; --invert: #232323; --shadow: rgba(0,0,0,0.4);
+      --alert-bg-err: #3d1a1a; --alert-bg-ok: #1a3d1a; --alert-bg-info: #1a1a3d;
+      --entry-hover: rgba(255,255,255,0.04);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Cutive Mono', 'Courier New', monospace;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+      transition: background .2s, color .2s;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background:
+        repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(160,130,80,0.03) 1px, rgba(160,130,80,0.03) 2px),
+        repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(160,130,80,0.015) 2px, rgba(160,130,80,0.015) 3px),
+        radial-gradient(ellipse at 20% 30%, rgba(180,150,90,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 70%, rgba(140,110,60,0.03) 0%, transparent 50%);
+      pointer-events: none; z-index: 100; opacity: 0.4;
+      transition: opacity .3s;
+    }
+    /* Custom scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted-light); }
+
+/* Page fade-in */
+    @keyframes pageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .container { animation: pageIn .5s ease-out; max-width: 1400px; margin: 0 auto; padding: 0 48px; }
+    /* Paper grain texture */
+    body::after {
+      content: ''; position: fixed; inset: 0; z-index: 99;
+      pointer-events: none; opacity: 0.06;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat; background-size: 128px 128px;
+    }
+    .dark body::before { opacity: .06; }
+    .dark body::after { opacity: 0.02; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 0 48px; }
+
+    .masthead { text-align: center; padding: 40px 0 18px; border-bottom: 3px solid var(--accent); margin-bottom: 20px; }
+    .masthead-top {
+      display: flex; justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted);
+      padding-bottom: 8px; border-bottom: 1px solid var(--border-light); margin-bottom: 18px;
+    }
+    h1 { font-family: 'Special Elite', 'Courier New', monospace; font-size: 52px; font-weight: 400; color: var(--accent); letter-spacing: -0.5px; line-height: 1.1; text-transform: uppercase; }
+    /* Typewriter animation */
+    @keyframes typewriter { from { width: 0 } to { width: 100% } }
+    @keyframes blinkCursor { from, to { border-color: transparent } 50% { border-color: var(--accent) } }
+    .typewriter {
+      display: inline-block; overflow: hidden; white-space: nowrap;
+      animation: typewriter 1.2s steps(12) forwards;
+      border-right: 2px solid var(--accent);
+      animation: typewriter 1.2s steps(12) forwards, blinkCursor .6s step-end 4;
+    }
+    .masthead-sub { font-size: 12px; color: var(--muted); margin-top: 6px; font-style: italic; }
+    .masthead-line { border-top: 1px solid var(--accent); height: 3px; background: var(--accent); margin-top: 10px; }
+    @keyframes lineGrow { from { width: 0 } to { width: 100% } }
+    .masthead-line { animation: lineGrow .8s ease-out; }
+
+    .live-ticker {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 1px; color: var(--muted-light);
+      padding: 6px 14px; border: 1px solid var(--border-light);
+      background: var(--surface); margin-bottom: 18px;
+    }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #888; animation: pulse 1.5s ease-in-out infinite; }
+    .live-dot.active { background: #5a7a5a; box-shadow: 0 0 6px rgba(74,122,74,0.3); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .ticker-mood { margin-left: auto; font-style: normal; color: var(--muted); }
+
+    .ledger-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 0; border: 1px solid var(--border); margin-bottom: 20px; background: var(--surface); }
+    .ledger-stat { text-align: center; padding: 14px 8px; border-right: 1px solid var(--border-light); }
+    .ledger-stat:last-child { border-right: none; }
+    .ledger-stat .num { font-family: 'Special Elite', monospace; font-size: 24px; font-weight: 400; color: var(--accent); line-height: 1; }
+    .ledger-stat .lbl { font-family: 'JetBrains Mono', monospace; font-size: 8px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-top: 4px; }
+
+    .article-meta {
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      text-transform: uppercase; letter-spacing: .8px; color: var(--muted-light);
+      border-bottom: 1px solid var(--border-light); padding: 8px 0; margin-bottom: 20px;
+    }
+    .article-meta strong { color: var(--accent); font-weight: 500; }
+
+    .wallet-box {
+      display: flex; align-items: center; justify-content: space-between;
+      border: 1px solid var(--border); padding: 12px 18px; margin-bottom: 12px;
+      background: var(--surface);
+    }
+    .wallet-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+    .wallet-mark { width: 32px; height: 32px; border: 1px solid var(--muted); display: flex; align-items: center; justify-content: center; color: #555; flex-shrink: 0; }
+    .wallet-detail { min-width: 0; }
+    .wallet-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+    .wallet-addr { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); }
+    .wallet-name { font-family: 'Special Elite', monospace; font-size: 16px; color: var(--accent); display: none; }
+
+    .alias-reg {
+      display: none; align-items: center; gap: 8px;
+      margin: 0 0 12px 0; padding: 8px 18px;
+      border: 1px solid var(--border-light); background: var(--surface);
+    }
+    .alias-reg input {
+      font-family: 'Cutive Mono', monospace; font-size: 13px;
+      background: rgba(255,255,255,0.3); border: 1px solid var(--border);
+      padding: 6px 10px; outline: none; flex: 1; color: var(--text);
+    }
+    .dark .alias-reg input { background: rgba(0,0,0,0.2); }
+    .alias-reg input:focus { border-color: var(--muted); }
+    .dark .alias-reg input:focus { background: rgba(0,0,0,0.3); }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      text-transform: uppercase; letter-spacing: 1px;
+      padding: 7px 16px; border: 1px solid var(--accent);
+      background: var(--accent); color: var(--invert); cursor: pointer; transition: all .15s;
+    }
+    .btn:hover { opacity: .8; }
+    .btn:disabled { opacity: .25; cursor: not-allowed; }
+    .btn-outline { background: transparent; color: var(--accent); }
+    .btn-outline:hover { background: var(--accent); color: var(--invert); }
+    .btn-ghost { background: transparent; border-color: transparent; color: var(--muted-light); }
+    .btn-ghost:hover { color: var(--accent); border-color: var(--border); }
+
+    .card { border: 1px solid var(--border); padding: 28px; margin-bottom: 20px; background: var(--surface); box-shadow: 0 1px 3px var(--shadow); }
+    .card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border-light); padding-bottom: 16px; flex-wrap: wrap; }
+    .card-icon { width: 36px; height: 36px; border: 1px solid var(--border-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--muted); }
+    .card-title { font-size: 17px; font-weight: 700; color: var(--accent); }
+    .card-sub { font-size: 12px; color: var(--muted); font-style: italic; }
+    .card-head-right { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+    .title-input {
+      width: 100%; font-family: 'Special Elite', 'Courier New', serif; font-size: 18px;
+      background: transparent; border: none; border-bottom: 1px solid var(--border-light);
+      padding: 6px 0 8px; outline: none; color: var(--accent); margin-bottom: 8px;
+    }
+    .title-input:focus { border-bottom-color: var(--accent); }
+    .title-input::placeholder { color: var(--muted-light); font-style: italic; font-size: 16px; }
+
+    textarea {
+      width: 100%; font-family: 'Cutive Mono', 'Courier New', monospace; font-size: 15px;
+      background: rgba(255,255,255,0.3); border: 1px solid var(--border);
+      padding: 14px 16px; resize: vertical; outline: none;
+      line-height: 1.9; color: var(--text);
+      transition: border-color .2s; min-height: 100px;
+    }
+    .dark textarea { background: rgba(0,0,0,0.25); }
+    textarea:focus { border-color: var(--muted); background: rgba(255,255,255,0.6); }
+    .dark textarea:focus { background: rgba(0,0,0,0.35); }
+    textarea::placeholder { color: var(--muted-light); font-style: italic; }
+
+    .prompt-bar {
+      font-size: 11px; color: var(--muted-light); font-style: italic;
+      padding: 6px 0 2px; min-height: 22px; cursor: pointer;
+      transition: color .2s;
+    }
+    .prompt-bar:hover { color: var(--accent); }
+
+    .upload-area {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 6px; padding: 6px 0;
+    }
+    .upload-btn, .mic-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 1px;
+      padding: 5px 12px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--muted); cursor: pointer;
+      transition: all .15s;
+    }
+    .upload-btn:hover, .mic-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .mic-btn.recording { border-color: #c33; color: #c33; animation: pulseMic .8s ease-in-out infinite; }
+    @keyframes pulseMic { 0%,100%{box-shadow:0 0 0 0 rgba(204,51,51,0.2)} 50%{box-shadow:0 0 0 6px rgba(204,51,51,0)} }
+    .mic-btn.recording svg { animation: spin 1s linear infinite; }
+    @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+    .upload-preview { display: none; align-items: center; gap: 8px; }
+    .upload-preview.show { display: flex; }
+    .upload-preview img { width: 40px; height: 40px; object-fit: cover; border: 1px solid var(--border-light); }
+    .upload-preview .name { font-size: 10px; color: var(--muted); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .upload-preview .remove { cursor: pointer; color: var(--muted-light); font-size: 14px; }
+    .upload-preview .remove:hover { color: #c33; }
+    #fileInput { display: none; }
+
+    .preview-box {
+      display: none; margin-top: 10px; padding: 10px 14px;
+      border-left: 2px solid var(--border-light);
+      background: rgba(0,0,0,0.02); font-size: 12px; line-height: 1.7;
+    }
+    .dark .preview-box { background: rgba(255,255,255,0.03); }
+    .preview-box.show { display: block; }
+    .preview-label { font-size: 8px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted-light); margin-bottom: 4px; }
+
+    .form-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+    .char-count { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted-light); }
+
+    .search-input {
+      font-family: 'Cutive Mono', monospace; font-size: 11px;
+      border: 1px solid var(--border-light); padding: 5px 10px;
+      background: rgba(255,255,255,0.3); color: var(--text); outline: none;
+      width: 160px; transition: border-color .2s;
+    }
+    .dark .search-input { background: rgba(0,0,0,0.2); }
+    .search-input:focus { border-color: var(--muted); }
+    .search-input::placeholder { color: var(--muted-light); font-style: italic; }
+
+    .alert { padding: 10px 14px; margin-top: 14px; display: none; font-size: 12px; }
+    .alert.show { display: block; }
+    .alert.error { background: var(--alert-bg-err); border-left: 3px solid var(--alert-border-err); color: var(--alert-border-err); }
+    .alert.success { background: var(--alert-bg-ok); border-left: 3px solid var(--alert-border-ok); color: var(--alert-border-ok); }
+    .alert.info { background: var(--alert-bg-info); border-left: 3px solid var(--alert-border-info); color: var(--alert-border-info); }
+
+    /* Analytics */
+    .analytics { display: none; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .analytics.show { display: flex; }
+    .analytics-card {
+      flex: 1; min-width: 120px; border: 1px solid var(--border-light);
+      padding: 12px 16px; background: var(--surface); text-align: center;
+    }
+    .analytics-card .val { font-family: 'Special Elite', serif; font-size: 20px; color: var(--accent); }
+    .analytics-card .lbl { font-size: 8px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted-light); margin-top: 2px; }
+    .analytics-card .sub { font-size: 9px; color: var(--muted-light); margin-top: 4px; max-height: 80px; overflow-y: auto; }
+
+    /* Entries grid */
+    .entries { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .entries.magazine { display: block; }
+    .entries.magazine .entry {
+      padding: 18px 0; margin-bottom: 0;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .entries.magazine .entry:first-child {
+      border: 1px solid var(--border); padding: 24px; margin-bottom: 12px;
+      background: var(--surface);
+    }
+    .entries.magazine .entry:first-child .entry-body { font-size: 17px; }
+    .entries.magazine .entry:last-child { border-bottom: none; }
+    .entries.collapsed .entry,
+    .entries.collapsed .entry-img,
+    .entries.collapsed .empty-state { display: none; }
+    .entries.collapsed .loading-state { display: none; }
+
+    .entry {
+      padding: 10px 14px; border: 1px solid var(--border-light);
+      border-radius: 3px; break-inside: avoid;
+      position: relative; background: var(--surface);
+      transition: box-shadow .15s, transform .15s;
+    }
+    .entry:hover {
+      box-shadow: 0 2px 12px var(--shadow);
+      transform: translateY(-1px);
+      margin: 0; padding: 10px 14px;
+    }
+    .entry-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+    .entry-index {
+      font-family: 'Special Elite', serif; font-size: 9px; color: var(--muted-light);
+      background: var(--bg); padding: 0 5px; border-radius: 2px;
+      margin-right: 4px; transition: all .15s; min-width: 16px; text-align: center;
+    }
+    .entry:hover .entry-index { background: var(--accent); color: var(--invert); }
+    .entry-time { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--muted-light); }
+    .entry-author { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--muted); }
+    .entry-body { font-size: 13px; line-height: 1.7; color: var(--accent); word-break: break-word; }
+    .entry-body b { font-family: 'Special Elite', serif; font-weight: 700; font-size: 14px; color: var(--accent); }
+    .entry-body i { font-style: italic; }
+    .entry-body code {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      background: var(--bg); padding: 1px 5px; border-radius: 2px;
+      color: var(--muted);
+    }
+    .entry-body pre {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      background: var(--bg); border: 1px solid var(--border-light);
+      padding: 8px 12px; overflow-x: auto; margin: 4px 0; line-height: 1.5;
+    }
+    .entry-body a { color: #5a5a8a; text-decoration: underline; }
+    .entry.hidden { display: none; }
+    .entry-img {
+      max-width: 100%; max-height: 30px; border: 1px solid var(--border-light);
+      margin-top: 6px; display: block; cursor: pointer; border-radius: 2px;
+    }
+
+    .del-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: none; border: none; cursor: pointer;
+      color: var(--border-light); padding: 4px; opacity: 0;
+      transition: opacity .15s, color .15s; font-size: 16px;
+    }
+    .entry:hover .del-btn { opacity: 1; }
+    .del-btn:hover { color: #c33; }
+
+    .empty-state { text-align: center; padding: 60px 20px; grid-column: 1 / -1; }
+    .empty-symbol { font-size: 36px; color: var(--border-light); display: block; margin-bottom: 12px; font-family: 'Special Elite', serif; }
+    .empty-title { font-size: 16px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    .empty-desc { font-size: 12px; color: var(--muted-light); font-style: italic; line-height: 1.8; }
+    .empty-line { width: 40px; height: 1px; background: var(--border-light); margin: 10px auto; }
+
+    .loading-state { grid-column: 1 / -1; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 40px 0; color: var(--muted); font-style: italic; font-size: 12px; }
+    .type-dot { display: inline-block; width: 6px; height: 6px; background: var(--border-light); border-radius: 50%; animation: blink 1s ease-in-out infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeSlideOut {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-4px); }
+    }
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 0 0 rgba(90,122,90,0.3); }
+      50% { box-shadow: 0 0 0 6px rgba(90,122,90,0); }
+      100% { box-shadow: 0 1px 4px var(--shadow); }
+    }
+    .entry.anim-in { animation: fadeSlideIn .3s ease-out both; }
+    .entry.anim-out { animation: fadeSlideOut .2s ease-in both; }
+    .entry.anim-glow { animation: pulseGlow .8s ease-out; }
+    .entry.anim-stagger { animation: fadeSlideIn .35s ease-out both; }
+
+    /* Skeleton loader */
+    @keyframes shimmer { 0%{background-position:-200px 0} 100%{background-position:200px 0} }
+    .skeleton { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .skeleton-card {
+      padding: 10px 14px; border: 1px solid var(--border-light); border-radius: 3px;
+      background: var(--surface); height: 40px;
+      background: linear-gradient(90deg, var(--surface) 25%, var(--border-light) 50%, var(--surface) 75%);
+      background-size: 200px 100%; animation: shimmer 1.2s ease-in-out infinite;
+    }
+
+    /* Confetti */
+    .confetti-container {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 999; overflow: hidden;
+    }
+    @keyframes confettiFall {
+      0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+    .confetti-piece {
+      position: absolute; top: -10px; width: 6px; height: 6px;
+      animation: confettiFall linear forwards;
+    }
+
+    .surprise-card {
+      display: none; border: 1px solid var(--border); padding: 24px;
+      margin-bottom: 20px; background: var(--surface); position: relative;
+    }
+    .surprise-card.show { display: block; }
+    .surprise-head { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted-light); margin-bottom: 10px; }
+    .surprise-body { font-size: 16px; line-height: 1.8; color: var(--accent); font-family: 'Special Elite', serif; }
+    .surprise-meta { font-size: 9px; color: var(--muted-light); margin-top: 8px; font-family: 'JetBrains Mono', monospace; }
+    .surprise-close { position: absolute; top: 8px; right: 12px; background: none; border: none; color: var(--muted-light); cursor: pointer; font-size: 18px; }
+
+    .page-footer {
+      text-align: center; padding: 24px 0 48px;
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 2px; color: var(--muted-light);
+      border-top: 2px solid var(--border-light); margin-top: 8px;
+    }
+    .page-footer a { color: var(--muted); text-decoration: none; cursor: pointer; }
+    .page-footer a:hover { color: var(--accent); }
+
+    .confirm-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+      display: none; align-items: center; justify-content: center; z-index: 200;
+    }
+    .confirm-overlay.show { display: flex; }
+    .confirm-box {
+      background: var(--bg); border: 2px solid var(--accent); padding: 24px 32px;
+      max-width: 360px; text-align: center;
+    }
+    .confirm-box p { font-size: 14px; margin-bottom: 16px; color: var(--accent); }
+    .confirm-actions { display: flex; gap: 10px; justify-content: center; }
+
+    /* Success popup */
+    .toast {
+      position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-80px);
+      background: var(--bg); border: 1px solid var(--accent);
+      padding: 16px 28px; z-index: 300; text-align: center;
+      opacity: 0; transition: all .4s cubic-bezier(.34,1.56,.64,1);
+      pointer-events: none; max-width: 400px;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast .icon { font-size: 28px; display: block; margin-bottom: 6px; }
+    .toast .msg { font-size: 13px; color: var(--accent); }
+    .toast .sub { font-size: 10px; color: var(--muted); margin-top: 4px; font-style: italic; }
+
+    /* Pending status */
+    .pending-status { display: none; align-items: center; gap: 8px; font-size: 9px; color: var(--muted-light); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; padding: 4px 0; }
+    .pending-status.show { display: flex; }
+    @keyframes hourglass { 0%{content:'⏳'} 25%{content:'⌛'} 50%{content:'⏳'} 75%{content:'⌛'} 100%{content:'⏳'} }
+    .pending-icon { display: inline-block; animation: spin 1.2s ease-in-out infinite; }
+    .pending-icon svg { display: block; }
+    @keyframes spin { 0%{transform:rotate(0deg)} 50%{transform:rotate(180deg)} 100%{transform:rotate(360deg)} }
+
+    /* Entry preview modal */
+    .preview-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      display: none; align-items: center; justify-content: center; z-index: 500;
+      cursor: pointer; backdrop-filter: blur(4px);
+    }
+    .preview-modal.show { display: flex; }
+    .preview-modal-inner {
+      background: var(--bg); border: 1px solid var(--accent);
+      max-width: 520px; width: 90%; max-height: 85vh; overflow-y: auto;
+      cursor: default; padding: 32px; position: relative;
+    }
+    .preview-modal-close {
+      position: absolute; top: 12px; right: 16px;
+      color: var(--muted-light); font-size: 22px; cursor: pointer;
+      transition: color .15s;
+    }
+    .preview-modal-close:hover { color: var(--accent); }
+    .preview-modal-head {
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 1px; color: var(--muted-light);
+      margin-bottom: 8px;
+    }
+    .preview-modal-body {
+      font-family: 'Cutive Mono', monospace; font-size: 15px;
+      line-height: 1.9; color: var(--accent); margin-bottom: 16px;
+      white-space: pre-wrap;
+    }
+    .preview-modal-body::first-letter {
+      font-family: 'Special Elite', serif; font-size: 28px;
+      float: left; padding-right: 4px; color: var(--accent);
+      line-height: 1;
+    }
+    .preview-modal-img {
+      max-width: 100%; max-height: 80px; border: 1px solid var(--border-light);
+      display: block; margin: 8px auto 0;
+    }
+    .preview-modal-foot {
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      color: var(--muted-light); margin-top: 12px; text-align: right;
+    }
+
+    @media (max-width:1200px) { .entries { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width:1024px) { .entries { grid-template-columns: repeat(2, 1fr); } .analytics-card { min-width: 100px; } }
+    @media (max-width:740px) { .entries { grid-template-columns: 1fr; } .container { padding: 0 16px; } h1 { font-size: 30px; } .masthead-top { flex-direction: column; align-items: center; gap: 4px; } .ledger-stats { grid-template-columns: repeat(2,1fr); } .ledger-stat:nth-child(2) { border-right: none; } .ledger-stat:nth-child(3) { border-right: 1px solid var(--border-light); } .card { padding: 18px; } .wallet-box { flex-direction: column; align-items: flex-start; gap: 10px; } .card-head-right { margin-left: 0; width: 100%; } .search-input { width: 100%; } .ticker-mood { margin-left: 0; width: 100%; } }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="masthead">
+    <div class="masthead-top">
+      <span>genlayer testnet</span>
+      <span>your private journal</span>
+      <span id="dateDisplay"></span>
+    </div>
+    <h1><span class="typewriter">Genote</span></h1>
+    <div class="masthead-sub">your private journal on genlayer</div>
+    <div class="masthead-line"></div>
+  </div>
+
+  <div class="live-ticker" id="liveTicker">
+    <span class="live-dot active" id="liveDot"></span>
+    <span id="tickerText">connected</span>
+    <span class="ticker-mood" id="tickerMood"></span>
+  </div>
+
+  <div class="ledger-stats">
+    <div class="ledger-stat"><div class="num" id="statMine">0</div><div class="lbl">my entries</div></div>
+    <div class="ledger-stat"><div class="num" id="statTotal">0</div><div class="lbl">total entries</div></div>
+    <div class="ledger-stat"><div class="num" id="statUsers">0</div><div class="lbl">users</div></div>
+    <div class="ledger-stat"><div class="num" id="statLast">--</div><div class="lbl">latest</div></div>
+  </div>
+
+  <div class="article-meta">
+    <span><strong id="userLabel">connect wallet</strong></span>
+    <span><strong id="msgCount"></strong></span>
+  </div>
+
+  <!-- Wallet -->
+  <div class="wallet-box">
+    <div class="wallet-left">
+      <div class="wallet-mark" id="walletAvatar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg></div>
+      <div class="wallet-detail">
+        <div class="wallet-label" id="walletLabel">wallet</div>
+        <div class="wallet-name" id="walletDisplayName"></div>
+        <div class="wallet-addr" id="walletAddr">connect to view your entries</div>
+      </div>
+    </div>
+    <button class="btn" id="connectBtn">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> connect
+    </button>
+  </div>
+
+  <!-- Alias -->
+  <div class="alias-reg" id="aliasReg">
+    <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">display name</span>
+    <input type="text" id="aliasInput" placeholder="your name (max 30 chars)" maxlength="30">
+    <button class="btn" id="aliasBtn" onclick="registerAlias()">set</button>
+  </div>
+
+  <!-- Write -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></div>
+      <div>
+        <div class="card-title">Write an Entry</div>
+        <div class="card-sub" id="promptHint">tap the prompt below for inspiration</div>
+      </div>
+    </div>
+    <div class="prompt-bar" id="promptBar" onclick="cyclePrompt()">&rarr; <span id="promptText">What made you smile today?</span></div>
+    <input type="text" class="title-input" id="titleInput" placeholder="title..." maxlength="200">
+    <textarea id="msgInput" placeholder="" maxlength="1800" oninput="updatePreview();clearPrompt()"></textarea>
+    <div class="upload-area">
+      <label class="upload-btn" id="uploadLabel">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        attach file
+        <input type="file" id="fileInput" onchange="handleFile(this)">
+      </label>
+      <a class="mic-btn" id="micBtn" onclick="toggleMic()" title="voice to text">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </a>
+      <div class="upload-preview" id="uploadPreview">
+        <img id="previewImg" src="">
+        <span class="name" id="previewName"></span>
+        <span class="remove" onclick="removeFile()">&times;</span>
+      </div>
+    </div>
+    <div class="preview-box" id="previewBox">
+      <div class="preview-label">preview</div>
+      <div id="previewContent"></div>
+    </div>
+    <div class="form-foot">
+      <span class="char-count" id="charCount">0 / 2000</span>
+      <button class="btn" id="submitBtn" onclick="submitMsg()" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> submit to record
+      </button>
+    </div>
+    <div id="alertBox" class="alert"></div>
+    <div class="pending-status" id="pendingStatus"><span class="pending-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 3h14v4l-7 5-7-5V3z"/><path d="M5 21h14v-4l-7-5-7 5v4z"/></svg></span> submitting to blockchain...</div>
+  </div>
+
+  <!-- Surprise Me & Analytics -->
+  <div class="surprise-card" id="surpriseCard">
+    <button class="surprise-close" onclick="closeSurprise()">&times;</button>
+    <div class="surprise-head">&#9733; featured entry</div>
+    <div class="surprise-body" id="surpriseBody"></div>
+    <div class="surprise-meta" id="surpriseMeta"></div>
+  </div>
+
+  <div class="analytics" id="analyticsBox">
+    <div class="analytics-card"><div class="val" id="analTotalWords">0</div><div class="lbl">total words</div></div>
+    <div class="analytics-card"><div class="val" id="analAvgLength">0</div><div class="lbl">avg chars</div></div>
+    <div class="analytics-card"><div class="val" id="analLongest">0</div><div class="lbl">longest entry</div></div>
+    <div class="analytics-card"><div class="val" id="analTopWord">&mdash;</div><div class="lbl">top word</div><div class="sub" id="analTopCount"></div></div>
+  </div>
+
+  <!-- Your Private Record -->
+  <div class="card" style="margin-bottom:0">
+    <div class="card-head">
+      <div class="card-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+      <div>
+        <div class="card-title">Your Private Record</div>
+        <div class="card-sub" id="entrySub">connect wallet to view your entries</div>
+      </div>
+      <div class="card-head-right">
+        <input type="text" class="search-input" id="searchInput" placeholder="search..." oninput="filterEntries()">
+        <a class="btn btn-ghost" onclick="collapseEntries()" title="collapse" id="collapseBtn">&minus;</a>
+        <a class="btn btn-ghost" onclick="surpriseMe()" title="surprise me">&#9733;</a>
+        <a class="btn btn-ghost" onclick="toggleView()" title="toggle view">&#9776;</a>
+        <a class="btn btn-ghost" onclick="toggleAnalytics()" title="analytics">&#9636;</a>
+        <a class="btn btn-ghost" onclick="exportTxt()" title="export txt">&#8600;</a>
+        <a class="btn btn-ghost" onclick="exportPdf()" title="print pdf">&#128196;</a>
+        <a class="btn btn-ghost" onclick="showTrash()" title="trash" id="trashBtn" style="display:none">&#128465;</a>
+        <a class="btn btn-ghost" onclick="loadMyEntries()" title="refresh">&#8635;</a>
+      </div>
+    </div>
+    <div class="entries" id="entries"></div>
+  </div>
+
+  <div class="page-footer">
+    <a onclick="toggleDark()" id="darkToggle">&#9632; dark</a>
+    &nbsp;&middot;&nbsp;
+    <strong>genote</strong> &middot; on genlayer &middot; <span id="edition">morning edition</span>
+  </div>
+</div>
+
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <p id="confirmMsg">Delete this entry?</p>
+    <div class="confirm-actions">
+      <button class="btn btn-outline" onclick="cancelDelete()">cancel</button>
+      <button class="btn" onclick="confirmDelete()">delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <span class="icon" id="toastIcon">&#10003;</span>
+  <div class="msg" id="toastMsg">done.</div>
+  <div class="sub" id="toastSub"></div>
+</div>
+
+<div class="preview-modal" id="previewModal" onclick="closePreview()">
+  <div class="preview-modal-inner" onclick="event.stopPropagation()">
+    <span class="preview-modal-close" onclick="closePreview()">&times;</span>
+    <div class="preview-modal-head" id="previewModalHead">entry</div>
+    <div class="preview-modal-body" id="previewModalBody"></div>
+    <img class="preview-modal-img" id="previewModalImg" src="" style="display:none">
+    <div class="preview-modal-foot" id="previewModalFoot"></div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let addr = null;
+let lastUpdate = Date.now();
+let pendingDeleteIndex = -1;
+let allEntries = [];
+let uploadedUrl = '';
+let isMagazine = false;
+let showAnalytics = false;
+let currentPrompt = 0;
+
+const PROMPTS = [
+  'What made you smile today?',
+  'What is a thought you keep coming back to?',
+  'Describe today in three words.',
+  'What are you grateful for right now?',
+  'What did you learn recently?',
+  'If today had a title, what would it be?',
+  'What is something small that made you happy?',
+  'What is on your mind right now?',
+  'Write about a memory that came to you today.',
+  'What are you looking forward to?',
+  'Describe how you feel without using an emotion word.',
+  'What is a question you have been sitting with?',
+  'Capture a moment from today in one sentence.',
+  'What would you tell your past self?',
+  'What is something you want to remember from today?',
+];
+
+const CONFIG = {
+  contractAddress: '0x4170c04aCb740A66579a041390a35Bb1766C275a',
+  rpcUrl: 'https://rpc-asimov.genlayer.com',
+  chainId: '0x107A',
+  chainName: 'GenLayer Asimov',
+  symbol: 'GEN',
+};
+
+document.getElementById('dateDisplay').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+(function(){ if (localStorage.getItem('gb-dark')==='1') document.body.classList.add('dark'); updateDarkToggle(); })();
+
+updateEdition(); setInterval(updateEdition, 60000);
+setInterval(updateTicker, 5000);
+setInterval(loadStats, 20000);
+setInterval(loadMood, 60000);
+
+cyclePrompt(); setInterval(cyclePrompt, 12000);
+loadStats(); loadMood();
+
+function updateEdition() {
+  const h = new Date().getHours();
+  document.getElementById('edition').textContent =
+    h<12?'morning edition':h<17?'afternoon edition':h<21?'evening edition':'night edition';
+}
+function updateTicker() {
+  const s = Math.floor((Date.now()-lastUpdate)/1000);
+  document.getElementById('tickerText').textContent =
+    s<5?'updated just now':s<60?'updated '+s+'s ago':'updated '+Math.floor(s/60)+'m ago';
+  document.getElementById('liveDot').className='live-dot'+(s<30?' active':'');
+}
+
+// ── Voice-to-Text ──
+let recognition = null;
+let isRecording = false;
+function toggleMic() {
+  const btn = document.getElementById('micBtn');
+  if (isRecording) {
+    if (recognition) recognition.stop();
+    btn.classList.remove('recording');
+    isRecording = false;
+    return;
+  }
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { show('error','voice not supported in this browser (try Chrome)'); return; }
+  recognition = new SpeechRecognition();
+  const lang = navigator.language || navigator.userLanguage || 'en-US';
+  recognition.lang = lang;
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.onresult = function(e) {
+    let finalTranscript = '';
+    let interimTranscript = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript + ' ';
+      else interimTranscript += e.results[i][0].transcript;
+    }
+    const input = document.getElementById('msgInput');
+    if (finalTranscript) input.value += finalTranscript;
+    input.scrollTop = input.scrollHeight;
+    updatePreview();
+    document.getElementById('charCount').textContent = input.value.length + ' / 2000';
+  };
+  recognition.onerror = function() { btn.classList.remove('recording'); isRecording = false; };
+  recognition.onend = function() { btn.classList.remove('recording'); isRecording = false; };
+  recognition.start();
+  btn.classList.add('recording');
+  isRecording = true;
+  showToast('\u25CB','listening...','speak now', 2000);
+}
+
+// ── Keyboard shortcuts ──
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { closePreview(); closeSurprise(); document.getElementById('confirmOverlay').classList.remove('show'); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { submitMsg(); e.preventDefault(); }
+});
+
+// ── Draft auto-save ──
+function saveDraft() {
+  const title = document.getElementById('titleInput').value.trim();
+  const body = document.getElementById('msgInput').value.trim();
+  if (title || body) localStorage.setItem('gb_draft', JSON.stringify({title, body}));
+  else localStorage.removeItem('gb_draft');
+}
+function restoreDraft() {
+  try {
+    const raw = localStorage.getItem('gb_draft');
+    if (raw) {
+      const d = JSON.parse(raw);
+      if (d.title) document.getElementById('titleInput').value = d.title;
+      if (d.body) { document.getElementById('msgInput').value = d.body; document.getElementById('previewBox').classList.add('show'); document.getElementById('previewContent').textContent = d.body; }
+    }
+  } catch(e){}
+}
+setInterval(saveDraft, 2000);
+document.getElementById('titleInput').addEventListener('input', saveDraft);
+document.getElementById('msgInput').addEventListener('input', function(){ saveDraft(); document.getElementById('charCount').textContent=this.value.length+' / 2000'; });
+restoreDraft();
+
+// Init connect button
+document.getElementById('connectBtn').onclick = connect;
+// Confirm before leave
+window.addEventListener('beforeunload', function(e) {
+  const title = document.getElementById('titleInput').value.trim();
+  const body = document.getElementById('msgInput').value.trim();
+  if (title || body) { e.preventDefault(); e.returnValue = ''; }
+});
+// Show trash btn if has items
+const hasTrash = JSON.parse(localStorage.getItem('gb_trash') || '[]').some(t => t.address === addr && (Date.now() - t.deletedAt) < 86400000);
+if (hasTrash) document.getElementById('trashBtn').style.display = '';
+
+// ── Auto-connect on load ──
+(async function autoConnect() {
+  if (!window.ethereum) return;
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+    if (accounts && accounts.length > 0 && localStorage.getItem('gb_addr')) {
+      await connect();
+    }
+  } catch(e) {}
+  // Listen for account changes
+  if (window.ethereum) {
+    window.ethereum.on('accountsChanged', function(accs) {
+      if (!accs || accs.length === 0) disconnect();
+      else if (accs[0] !== addr) { addr = null; connect(); }
+    });
+  }
+})();
+
+// ── Prompts ──
+function cyclePrompt() {
+  currentPrompt = (currentPrompt + 1) % PROMPTS.length;
+  const input = document.getElementById('msgInput');
+  if (!input.value.trim()) {
+    document.getElementById('promptText').textContent = PROMPTS[currentPrompt];
+  }
+}
+function clearPrompt() {
+  document.getElementById('promptText').textContent = 'keep writing...';
+}
+
+// ── Stats ──
+async function loadStats() {
+  try {
+    const r = await fetch(API+'/api/stats');
+    const d = await r.json();
+    document.getElementById('statTotal').textContent=d.totalEntries||0;
+    document.getElementById('statUsers').textContent=d.totalUsers||0;
+  } catch(e){}
+}
+async function loadMood() {
+  try {
+    const r = await fetch(API+'/api/mood');
+    const d = await r.json();
+    const vibe=d.vibe||{};
+    document.getElementById('tickerMood').textContent=vibe.label? vibe.label+' '+vibe.emoji : '';
+  } catch(e){}
+}
+
+// ── File Upload ──
+function handleFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5*1024*1024) { show('error','max 5MB'); input.value=''; return; }
+  // Instant preview using object URL
+  const preview = document.getElementById('previewImg');
+  const nameEl = document.getElementById('previewName');
+  if (file.type.startsWith('image/')) {
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
+  nameEl.textContent = file.name;
+  document.getElementById('uploadPreview').classList.add('show');
+  // Upload file directly via FormData
+  const form = new FormData();
+  form.append('file', file);
+  fetch('/api/upload', {method:'POST', body:form})
+    .then(r=>r.json())
+    .then(d=>{
+      if (d.status==='success' && d.url) {
+        uploadedUrl = d.url;
+        // Revoke object URL to free memory
+        if (preview.src.startsWith('blob:')) URL.revokeObjectURL(preview.src);
+        showToast('\u2713','file attached','', 2000);
+      } else show('error','upload failed');
+    })
+    .catch(e=>show('error',e.message));
+}
+function removeFile() {
+  document.getElementById('uploadPreview').classList.remove('show');
+  document.getElementById('fileInput').value='';
+  uploadedUrl='';
+}
+
+// ── Load Entries ──
+async function loadMyEntries() {
+  const el=document.getElementById('entries'), sub=document.getElementById('entrySub');
+  lastUpdate=Date.now();
+  if (!addr) {
+    el.innerHTML='<div class="empty-state"><span class="empty-symbol">~</span><div class="empty-title">Not connected</div><div class="empty-line"></div><div class="empty-desc">connect your wallet to view<br>your private record</div></div>';
+    sub.textContent='connect wallet';
+    document.getElementById('userLabel').textContent='connect wallet';
+    document.getElementById('msgCount').textContent=''; return;
+  }
+  el.innerHTML='<div class="skeleton">'+Array(8).fill('<div class="skeleton-card"></div>').join('')+'</div>';
+  document.getElementById('userLabel').textContent=addr.slice(0,6)+'...'+addr.slice(-4);
+  try {
+    const r=await fetch(API+'/api/my-data?address='+addr);
+    const d=await r.json();
+    allEntries=d.entries||[];
+    // Merge with local pending entries
+    const localData = JSON.parse(localStorage.getItem('gb_local_entries') || '[]');
+    // Only add local entries not yet on chain (by content match)
+    const existingContents = new Set(allEntries.map(e => e.content));
+    for (const local of localData) {
+      if (!existingContents.has(local.content)) {
+        local.pending = true;
+        allEntries.push(local);
+      }
+    }
+    const count=d.count||0; const alias = d.alias || localStorage.getItem('gb_alias') || '';
+    document.getElementById('statMine').textContent=count;
+    document.getElementById('msgCount').textContent=count+' entr'+(count!==1?'ies':'y');
+    document.title = 'Genote (' + count + ')';
+    sub.textContent=allEntries.length+' entr'+(allEntries.length!==1?'ies':'y');
+    updateWalletDisplay(alias);
+    renderEntries(allEntries);
+    updateAnalytics(allEntries);
+    if (allEntries.length>0){
+      const l=allEntries[allEntries.length-1];
+      if (l.timestamp){ const d=new Date(l.timestamp*1000); document.getElementById('statLast').textContent=d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0'); }
+    }
+    loadMood();
+  } catch(e){
+    el.innerHTML='<div class="empty-state"><span class="empty-symbol">!</span><div class="empty-title">error</div><div class="empty-desc">'+esc(e.message)+'</div></div>';
+    sub.textContent='error';
+  }
+}
+
+function renderEntries(msgs) {
+  const el=document.getElementById('entries'), search=document.getElementById('searchInput').value.toLowerCase().trim();
+  const alias=document.getElementById('walletDisplayName').textContent;
+  const imgKey = addr ? 'gb_img_'+addr : '';
+  el.className = 'entries' + (isMagazine?' magazine':'');
+  if (!msgs||!msgs.length){ el.innerHTML='<div class="empty-state"><span class="empty-symbol">~</span><div class="empty-title">No entries yet</div><div class="empty-line"></div><div class="empty-desc">your private record is a blank page<br>waiting for your first words</div></div>';return; }
+
+  let html='', count=0;
+  for(let i=msgs.length-1;i>=0;i--){
+    const m=msgs[i], content=m.content||'';
+    if(search&&!content.toLowerCase().includes(search)) continue;
+    count++;
+    const ts=m.timestamp?new Date(m.timestamp*1000).toLocaleString():'', idx=m.index;
+    const imgUrl=m.image_url||(localStorage.getItem(imgKey+'_'+idx)||'');
+    let extra='';
+    if (imgUrl){
+      if (/\.(jpe?g|png|gif|webp|bmp|svg)(\?.*)?$/i.test(imgUrl)) extra+='<img class="entry-img" src="'+esc(imgUrl)+'" loading="lazy">';
+      else extra+='<span class="entry-link" style="display:flex;align-items:center;gap:4px;margin-top:4px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><a href="'+esc(imgUrl)+'" target="_blank" rel="noopener">'+esc(imgUrl.split('/').pop()||'file')+'</a></span>';
+    }
+    const author=alias?'<span class="entry-author">'+esc(alias)+'</span>':'';
+    const pendingBadge = m.pending ? ' <span style="font-size:7px;color:var(--muted-light);font-style:italic;">(pending)</span>' : '';
+    const parts = content.split('\n\n');
+    let cardTitle = parts[0] || content;
+    let titleHtml = esc(cardTitle);
+    if (parts.length >= 2 && parts[1].trim()) {
+      // Has title separator - bold the title
+      titleHtml = '<b>' + esc(cardTitle) + '</b>';
+    } else {
+      // No title - show snippet
+      cardTitle = content.length > 50 ? content.substring(0, 50) + '...' : content;
+      titleHtml = esc(cardTitle);
+    }
+    html+='<div class="entry" data-index="'+idx+'" onclick="openPreview('+idx+')"><button class="del-btn" onclick="event.stopPropagation();askDelete('+idx+')" title="delete">&times;</button><div class="entry-head">'+author+pendingBadge+'<span class="entry-time">'+ts+'</span></div><div class="entry-body">'+titleHtml+'</div>'+extra+'</div>';
+  }
+  if(!html) html='<div class="empty-state"><span class="empty-symbol">~</span><div class="empty-title">No matches</div><div class="empty-line"></div><div class="empty-desc">no entries match "'+esc(search)+'"</div></div>';
+  el.innerHTML=html;
+  // Staggered animation
+  const staggerEntries = el.querySelectorAll('.entry:not(.anim-glow)');
+  staggerEntries.forEach((e, i) => {
+    e.style.opacity = '0';
+    setTimeout(() => {
+      e.classList.add('anim-stagger');
+      e.style.opacity = '';
+    }, 30 + i * 40);
+  });
+  // Expand / collapse
+  const allEntryEls = document.querySelectorAll('#entries .entry:not(.hidden)');
+  const totalVisible = allEntryEls.length;
+  const isShowAll = document.getElementById('entries').classList.contains('showAll');
+  const oldBtn = document.getElementById('showMoreBtn');
+  if (oldBtn) oldBtn.remove();
+
+  if (totalVisible > 8 && !isShowAll) {
+    for (let i = 8; i < totalVisible; i++) allEntryEls[i].style.display = 'none';
+    const btn = document.createElement('div');
+    btn.id = 'showMoreBtn';
+    btn.style.cssText = 'grid-column:1/-1;text-align:center;padding:10px 0 2px;';
+    function renderBtn(expanded) {
+      btn.innerHTML = expanded
+        ? '<a class="btn btn-outline" style="font-size:9px;padding:5px 14px;">&#x25B2; collapse</a>'
+        : '<a class="btn btn-outline" style="font-size:9px;padding:5px 14px;">&#x25BC; expand all (' + totalVisible + ')</a>';
+    }
+    renderBtn(false);
+    btn.onclick = function() {
+      const isExpanded = document.getElementById('entries').classList.toggle('showAll');
+      if (isExpanded) {
+        // Expand with animation
+        allEntryEls.forEach((e, i) => {
+          if (i >= 8) { e.style.display = ''; e.classList.add('anim-in'); }
+        });
+      } else {
+        // Collapse with animation then hide
+        allEntryEls.forEach((e, i) => {
+          if (i >= 8) e.classList.add('anim-out');
+        });
+        setTimeout(() => {
+          allEntryEls.forEach((e, i) => { if (i >= 8) { e.style.display = 'none'; e.classList.remove('anim-out'); } });
+        }, 200);
+      }
+      renderBtn(isExpanded);
+    };
+    el.parentNode.appendChild(btn);
+  }
+}
+
+// ── Analytics ──
+function updateAnalytics(msgs) {
+  if (!msgs||!msgs.length) return;
+  let total=0, avg=0, longest=0, words={};
+  for (const m of msgs) {
+    const c=(m.content||'').trim();
+    total+=c.split(/\s+/).filter(Boolean).length;
+    if (c.length>longest) longest=c.length;
+    c.toLowerCase().split(/\s+/).filter(Boolean).forEach(w=>{ w=w.replace(/[^a-z0-9]/g,''); if(w&&w.length>2) words[w]=(words[w]||0)+1; });
+  }
+  avg = Math.round((msgs.reduce((s,m)=>s+(m.content||'').length,0)/msgs.length));
+  const sorted=Object.entries(words).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('analTotalWords').textContent=total;
+  document.getElementById('analAvgLength').textContent=avg;
+  document.getElementById('analLongest').textContent=longest;
+  if (sorted.length) {
+    document.getElementById('analTopWord').textContent=sorted[0][0];
+    document.getElementById('analTopCount').textContent=sorted[0][1]+'x';
+  }
+}
+function toggleAnalytics() {
+  showAnalytics=!showAnalytics;
+  document.getElementById('analyticsBox').classList.toggle('show', showAnalytics);
+}
+
+// ── View Toggle ──
+function toggleView() {
+  isMagazine=!isMagazine;
+  document.getElementById('entries').classList.toggle('magazine', isMagazine);
+}
+let isCollapsed = false;
+function collapseEntries() {
+  isCollapsed=!isCollapsed;
+  document.getElementById('entries').classList.toggle('collapsed', isCollapsed);
+  document.getElementById('collapseBtn').innerHTML=isCollapsed?'&#43;':'&minus;';
+}
+
+// ── Export TXT ──
+function exportTxt() {
+  if (!addr||!allEntries.length) { show('info','connect first or write entries.'); return; }
+  let txt='=== My GuestBook Export ===\nGenerated: '+new Date().toISOString()+'\nAddress: '+addr+'\n\n';
+  for (let i=allEntries.length-1;i>=0;i--){
+    const m=allEntries[i], ts=m.timestamp?new Date(m.timestamp*1000).toLocaleString():'(unknown)';
+    txt+='--- Entry #'+(i+1)+' | '+ts+'\n';
+    txt+=(m.content||'')+'\n\n';
+  }
+  const blob=new Blob([txt],{type:'text/plain'}), a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='genote-export.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  showToast('\u2713','exported as txt','', 2000);
+}
+function exportPdf() {
+  if (!addr||!allEntries.length) { show('info','connect first or write entries.'); return; }
+  showToast('\u2713','opening print dialog...','', 2000);
+  setTimeout(() => window.print(), 500);
+}
+
+// ── Search ──
+function filterEntries(){ renderEntries(allEntries); }
+
+// ── Surprise ──
+function surpriseMe() {
+  if(!allEntries||!allEntries.length){ show('info','no entries yet.'); return; }
+  const p=allEntries[Math.floor(Math.random()*allEntries.length)];
+  document.getElementById('surpriseBody').textContent=p.content||'';
+  const ts=p.timestamp?new Date(p.timestamp*1000).toLocaleString():'';
+  document.getElementById('surpriseMeta').textContent=ts;
+  document.getElementById('surpriseCard').classList.add('show');
+}
+function closeSurprise(){ document.getElementById('surpriseCard').classList.remove('show'); }
+
+// ── Preview ──
+function updatePreview(){
+  const c=document.getElementById('msgInput').value.trim();
+  const box=document.getElementById('previewBox'), pv=document.getElementById('previewContent');
+  if(c){ pv.textContent=c; box.classList.add('show'); } else box.classList.remove('show');
+}
+
+// ── Dark Mode ──
+function toggleDark(){ document.body.classList.toggle('dark'); localStorage.setItem('gb-dark',document.body.classList.contains('dark')?'1':'0'); updateDarkToggle(); }
+function updateDarkToggle(){ document.getElementById('darkToggle').textContent=document.body.classList.contains('dark')?'\u25A0 light':'\u25A0 dark'; }
+
+// ── Wallet ──
+function updateWalletDisplay(alias){
+  const ne=document.getElementById('walletDisplayName'), ae=document.getElementById('walletAddr'), re=document.getElementById('aliasReg');
+  if(alias){ ne.textContent=alias; ne.style.display='block'; ae.style.display='none'; re.style.display='none'; document.getElementById('userLabel').textContent=alias; }
+  else if(addr){ ne.style.display='none'; ae.style.display='block'; ae.textContent=addr.slice(0,6)+'...'+addr.slice(-4); re.style.display='flex'; document.getElementById('aliasInput').value=''; }
+}
+
+async function connect(){
+  if(!window.ethereum) return alert('Install MetaMask');
+  const btn=document.getElementById('connectBtn'); btn.disabled=true; btn.textContent='...';
+  try {
+    await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:CONFIG.chainId}]})
+    .catch(async e=>{ if(e.code===4902) await window.ethereum.request({method:'wallet_addEthereumChain',params:[{chainId:CONFIG.chainId,chainName:CONFIG.chainName,nativeCurrency:{name:'GEN',symbol:'GEN',decimals:18},rpcUrls:[CONFIG.rpcUrl]}]}); else throw e; });
+    const acc=await window.ethereum.request({method:'eth_requestAccounts'});
+    addr=acc[0];
+    localStorage.setItem('gb_addr', addr);
+    document.getElementById('walletLabel').textContent='connected';
+    document.getElementById('walletAddr').textContent=addr.slice(0,6)+'...'+addr.slice(-4);
+    document.getElementById('submitBtn').disabled=false;
+    btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> disconnect';
+    btn.disabled=false; btn.className='btn btn-outline'; btn.onclick=disconnect;
+    loadMyEntries();
+  } catch(e){ if(e.code!==4001) alert(e.message); btn.disabled=false; btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> connect'; }
+}
+function disconnect(){
+  addr=null; allEntries=[];
+  localStorage.removeItem('gb_addr');
+  localStorage.removeItem('gb_alias');
+  document.getElementById('walletLabel').textContent='wallet';
+  document.getElementById('walletAddr').textContent='connect to view your entries';
+  document.getElementById('walletDisplayName').style.display='none';
+  document.getElementById('submitBtn').disabled=true;
+  document.getElementById('statMine').textContent='0';
+  document.getElementById('msgCount').textContent='';
+  document.getElementById('userLabel').textContent='connect wallet';
+  document.getElementById('aliasReg').style.display='none';
+  const btn=document.getElementById('connectBtn');
+  btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> connect';
+  btn.className='btn'; btn.onclick=connect; loadMyEntries();
+}
+
+// ── Alias ──
+async function registerAlias(){
+  const input=document.getElementById('aliasInput'), name=input.value.trim(), btn=document.getElementById('aliasBtn');
+  if(!name||!addr) return;
+  btn.disabled=true; btn.textContent='...';
+  try {
+    await window.ethereum.request({method:'personal_sign',params:['Set display name: '+name,addr]});
+    show('info','submitting name...');
+    const res=await fetch('/api/alias',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+    const d=await res.json();
+    if(d.status==='success'){ showToast('\u2713','welcome, '+name,'name saved on-chain'); localStorage.setItem('gb_alias', name); updateWalletDisplay(name); document.getElementById('userLabel').textContent=name; }
+    else show('error',d.error||'failed');
+  } catch(e){ if(e.code===4001) show('error','signature declined.'); else show('error',e.message); }
+  btn.disabled=false; btn.textContent='set';
+}
+
+// ── Submit ──
+async function submitMsg(){
+  const input=document.getElementById('msgInput'), fileInput=document.getElementById('fileInput');
+  const titleInput = document.getElementById('titleInput');
+  const title = titleInput.value.trim();
+  let body = input.value.trim();
+  if(!title && !body) return;
+  if(!addr) return;
+  const content = title + '\n\n' + body;  // Store as "title\n\nbody"
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true; btn.innerHTML='<span class="type-dot" style="margin:0 auto"></span>';
+  try {
+    show('info','sign in your wallet...');
+    await window.ethereum.request({method:'personal_sign',params:['Submit to GuestBook: "'+content.substring(0,40)+'"',addr]});
+    
+    // Clear sign message
+    document.getElementById('alertBox').className='alert';
+    // Show persistent pending status
+    document.getElementById('pendingStatus').classList.add('show');
+    showToast('\u2713','saved to record','awaiting consensus...', 4000);
+    localStorage.removeItem('gb_draft');
+    input.value=''; titleInput.value=''; document.getElementById('charCount').textContent='0 / 2000';
+    document.getElementById('previewBox').classList.remove('show');
+    const optimisticEntry = {
+      index: allEntries.length,
+      content: content,
+      timestamp: Math.floor(Date.now() / 1000),
+      image_url: uploadedUrl || '',
+    };
+    allEntries.push(optimisticEntry);
+    renderEntries(allEntries);
+    updateAnalytics(allEntries);
+    // Save to localStorage for persistence
+    const localData = JSON.parse(localStorage.getItem('gb_local_entries') || '[]');
+    localData.push(optimisticEntry);
+    localStorage.setItem('gb_local_entries', JSON.stringify(localData));
+    fireConfetti();
+    setTimeout(() => {
+      const firstEntry = document.querySelector('#entries .entry');
+      if (firstEntry) firstEntry.classList.add('anim-glow');
+    }, 100);
+    removeFile(); uploadedUrl='';
+    updatePrompt();
+    btn.disabled=false; btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> submit';
+
+    // Background submit to genlayer
+    fetch('/api/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content,address:addr})})
+      .then(r=>r.json())
+      .then(d=>{
+        if (d.status==='success') {
+          if (uploadedUrl) {
+            const key='gb_img_'+(addr||'')+'_'+(allEntries.length-1||0);
+            localStorage.setItem(key, uploadedUrl);
+          }
+          setTimeout(()=>{
+            // Remove from local pending
+            const localData = JSON.parse(localStorage.getItem('gb_local_entries') || '[]');
+            const remaining = localData.filter(e => e.content !== content);
+            localStorage.setItem('gb_local_entries', JSON.stringify(remaining));
+            document.getElementById('pendingStatus').classList.remove('show');
+            showToast('\u2713','submitted to blockchain','transaction confirmed', 4000);
+            fireConfetti();
+            loadMyEntries();
+          },12000);
+        }
+      })
+      .catch(()=>{});
+  } catch(e) {
+    if(e.code===4001) show('error','signature declined.');
+    else show('error',e.message);
+    btn.disabled=false; btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> submit';
+  }
+}
+function updatePrompt(){
+  currentPrompt=Math.floor(Math.random()*PROMPTS.length);
+  document.getElementById('promptText').textContent=PROMPTS[currentPrompt];
+}
+
+// ── Delete ──
+function askDelete(i){ pendingDeleteIndex=i; document.getElementById('confirmMsg').textContent='Delete entry #'+(i+1)+'?'; document.getElementById('confirmOverlay').classList.add('show'); }
+function cancelDelete(){ pendingDeleteIndex=-1; document.getElementById('confirmOverlay').classList.remove('show'); }
+async function confirmDelete(){
+  document.getElementById('confirmOverlay').classList.remove('show');
+  if(pendingDeleteIndex<0||!addr) return;
+  const idx=pendingDeleteIndex; pendingDeleteIndex=-1;
+  const entry = allEntries.find(e => e.index === idx);
+  // Move to trash
+  const trash = JSON.parse(localStorage.getItem('gb_trash') || '[]');
+  trash.push({entry: entry, deletedAt: Date.now(), address: addr});
+  localStorage.setItem('gb_trash', JSON.stringify(trash));
+  // Remove from allEntries
+  allEntries = allEntries.filter(e => e.index !== idx);
+  renderEntries(allEntries);
+  updateAnalytics(allEntries);
+  showToast('\u21A9','entry moved to trash','undo available for 24h', 6000);
+  document.getElementById('trashBtn').style.display = '';
+  // Try on-chain delete in background
+  try {
+    await window.ethereum.request({method:'personal_sign',params:['Delete entry #'+(idx+1)+' from GuestBook',addr]});
+    fetch('/api/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({index:idx})}).catch(()=>{});
+  } catch(e){}
+}
+
+// ── Trash ──
+function showTrash() {
+  const trash = JSON.parse(localStorage.getItem('gb_trash') || '[]');
+  const recent = trash.filter(t => t.address === addr && (Date.now() - t.deletedAt) < 86400000);
+  if (!recent.length) { showToast('--','trash is empty','', 2000); document.getElementById('trashBtn').style.display='none'; return; }
+  const el = document.getElementById('entries');
+  let html = '<div class="empty-state" style="grid-column:1/-1;padding:20px;"><div class="empty-symbol">&#128465;</div><div class="empty-title">Trash ('+recent.length+')</div><div class="empty-line"></div><div class="empty-desc">entries here expire in 24h</div></div>';
+  for (const t of recent) {
+    const e = t.entry;
+    const content = e.content || '';
+    const title = content.split('\n\n')[0] || content.substring(0,40);
+    const ts = e.timestamp ? new Date(e.timestamp*1000).toLocaleString() : '';
+    html += '<div class="entry" style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;"><span style="font-size:12px;">'+esc(title)+' <span style="font-size:8px;color:var(--muted-light)">'+ts+'</span></span><span><a class="btn btn-ghost" onclick="restoreEntry('+t.entry.index+')" style="font-size:8px;padding:3px 8px;">&#8635; restore</a></span></div>';
+  }
+  el.innerHTML = html;
+}
+function restoreEntry(idx) {
+  const trash = JSON.parse(localStorage.getItem('gb_trash') || '[]');
+  const item = trash.find(t => t.entry.index === idx && t.address === addr);
+  if (!item) return;
+  const remaining = trash.filter(t => t !== item);
+  localStorage.setItem('gb_trash', JSON.stringify(remaining));
+  allEntries.push(item.entry);
+  renderEntries(allEntries);
+  updateAnalytics(allEntries);
+  showToast('\u2713','entry restored','', 2000);
+  if (!remaining.length) document.getElementById('trashBtn').style.display='none';
+}
+
+function show(type,text){ const el=document.getElementById('alertBox'); el.className='alert show '+type; el.textContent=text; }
+function showToast(icon, msg, sub, duration) {
+  document.getElementById('toastIcon').textContent = icon;
+  document.getElementById('toastMsg').textContent = msg;
+  document.getElementById('toastSub').textContent = sub || '';
+  const el = document.getElementById('toast');
+  el.classList.add('show');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('show'), duration || 3000);
+}
+function openPreview(idx) {
+  const entry = allEntries.find(e => e.index === idx);
+  if (!entry) return;
+  document.getElementById('previewModalHead').textContent = 'entry #' + (idx + 1);
+  document.getElementById('previewModalBody').innerHTML = mdRender(entry.content || '');
+  const url = entry.image_url || (addr ? localStorage.getItem('gb_img_'+addr+'_'+idx) : '');
+  const imgEl = document.getElementById('previewModalImg');
+  if (url && /\.(jpe?g|png|gif|webp|bmp|svg)(\?.*)?$/i.test(url)) {
+    imgEl.src = url;
+    imgEl.style.display = 'block';
+  } else if (url && (url.startsWith('/uploads/') || url.startsWith('http'))) {
+    // Non-image file - show as link in preview body
+    imgEl.style.display = 'none';
+    const bodyEl = document.getElementById('previewModalBody');
+    bodyEl.innerHTML = (entry.content || '') + '<br><br><a href="'+url+'" target="_blank" rel="noopener" style="font-size:12px;color:var(--muted);text-decoration:underline;">&#128196; open attached file</a>';
+  } else {
+    imgEl.style.display = 'none';
+  }
+  const ts = entry.timestamp ? new Date(entry.timestamp * 1000).toLocaleString() : '';
+  document.getElementById('previewModalFoot').textContent = ts;
+  document.getElementById('previewModal').classList.add('show');
+}
+function closePreview() {
+  document.getElementById('previewModal').classList.remove('show');
+}
+// ── Confetti ──
+function fireConfetti() {
+  const container = document.createElement('div');
+  container.className = 'confetti-container';
+  const colors = ['#111', '#5a7a5a', '#c33', '#7c3aed', '#d4a017', '#888'];
+  for (let i = 0; i < 40; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.width = (4 + Math.random() * 4) + 'px';
+    piece.style.height = (4 + Math.random() * 4) + 'px';
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '1px';
+    piece.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+    piece.style.animationDelay = Math.random() * 0.5 + 's';
+    container.appendChild(piece);
+  }
+  document.body.appendChild(container);
+  setTimeout(() => container.remove(), 4000);
+}
+
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function toRoman(n) {
+  const vals = [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
+  let r='',i=0;
+  while(n>0){while(n>=vals[i][0]){r+=vals[i][1];n-=vals[i][0];}i++;}
+  return r.toLowerCase();
+}
+function wordCount(text) {
+  const words = (text||'').trim().split(/\s+/).filter(Boolean);
+  return words.length;
+}
+function readingTime(text) {
+  const w = wordCount(text);
+  const sec = Math.ceil(w / 3);
+  if (sec < 60) return sec + 's read';
+  return Math.ceil(sec/60) + 'm read';
+}
+function mdRender(text) {
+  let s = esc(text || '');
+  // code block first
+  s = s.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+  // inline code
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // bold
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  // italic
+  s = s.replace(/\*([^*]+)\*/g, '<i>$1</i>');
+  // links
+  s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  // line breaks
+  s = s.replace(/\n/g, '<br>');
+  return s;
+}
+</script>
+</body>
+</html>
