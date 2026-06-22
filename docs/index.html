@@ -439,8 +439,10 @@
 
     async myEntries() {
       if (!account) return [];
+      // NOTE: genlayer-js reads sender from account.address — must be an object, not a bare string,
+      // otherwise it falls back to the zero address and returns nothing.
       const res = await readClient.readContract({
-        address: CONTRACT, functionName: "my_entries", args: [], account,
+        address: CONTRACT, functionName: "my_entries", args: [], account: { address: account },
       });
       const list = Array.isArray(res) ? res : [];
       return list.map((e) => ({
