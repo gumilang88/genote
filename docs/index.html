@@ -157,6 +157,8 @@
     }
     .dark .alias-row input { background: rgba(0,0,0,0.2); }
     .alias-row .alias-hint { font-size: 10px; color: var(--muted-light); font-style: italic; }
+    .namecard { border: 1px solid var(--border-light); padding: 10px 18px; margin-top: 0; margin-bottom: 12px; background: var(--surface); }
+    .namecard .namecard-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-right: 2px; }
     .search-input {
       font-family: 'Cutive Mono', monospace; font-size: 11px;
       border: 1px solid var(--border-light); padding: 5px 10px;
@@ -320,6 +322,14 @@
     </button>
   </div>
 
+  <!-- Display name (only shown until a name is set) -->
+  <div class="alias-row namecard" id="aliasRow" style="display:none">
+    <span class="namecard-label">display name</span>
+    <input type="text" id="aliasInput" placeholder="set a display name" maxlength="30">
+    <button class="btn btn-outline" id="aliasBtn">set name</button>
+    <span class="alias-hint">optional &mdash; saved on-chain</span>
+  </div>
+
   <div class="article-meta">
     <span><strong id="userLabel">connect wallet</strong></span>
     <span><strong id="msgCount"></strong></span>
@@ -347,11 +357,6 @@
       <button class="btn" id="submitBtn" disabled>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> sign &amp; submit
       </button>
-    </div>
-    <div class="alias-row" id="aliasRow" style="display:none">
-      <input type="text" id="aliasInput" placeholder="display name" maxlength="30">
-      <button class="btn btn-outline" id="aliasBtn">set name</button>
-      <span class="alias-hint">optional &mdash; saved on-chain</span>
     </div>
   </div>
 
@@ -462,10 +467,8 @@
     },
 
     async getAlias(addr) {
-      try {
-        const a = await readClient.readContract({ address: CONTRACT, functionName: "get_alias", args: [addr] });
-        return String(a ?? "");
-      } catch (e) { return ""; }
+      const a = await readClient.readContract({ address: CONTRACT, functionName: "get_alias", args: [addr] });
+      return String(a ?? "");
     },
 
     async submit(content) {
@@ -589,7 +592,7 @@ function setEnabled(on){
   document.getElementById('msgInput').disabled=!on;
   document.getElementById('submitBtn').disabled=!on;
   document.getElementById('micBtn').disabled=!on;
-  document.getElementById('aliasRow').style.display=on?'flex':'none';
+  if (!on) document.getElementById('aliasRow').style.display='none';
   if (on) {
     document.getElementById('userLabel').textContent=addr.slice(0,6)+'...'+addr.slice(-4);
     document.getElementById('composeSub').textContent='your entry will be signed by your wallet';
@@ -605,14 +608,35 @@ async function loadTotals(){
   } catch(e){ /* RPC may be slow; leave dashes */ }
 }
 
+// Apply an alias to the UI. A non-empty name => show it near the wallet and
+// hide the set-name prompt (so refresh never re-asks). Empty => show the prompt.
+function applyAlias(name){
+  const ne=document.getElementById('walletDisplayName');
+  const row=document.getElementById('aliasRow');
+  if (name) {
+    ne.textContent=name; ne.style.display='block';
+    document.getElementById('userLabel').textContent=name;
+    document.getElementById('aliasInput').value=name;
+    row.style.display='none';
+    if (addr) localStorage.setItem('gb_alias_'+addr.toLowerCase(), name);
+  } else {
+    ne.style.display='none';
+    if (addr) document.getElementById('userLabel').textContent=addr.slice(0,6)+'...'+addr.slice(-4);
+    row.style.display='flex';
+  }
+}
+
 async function loadAlias(){
   if (!addr) return;
-  const alias = await window.GL.getAlias(addr);
-  if (alias) {
-    const ne=document.getElementById('walletDisplayName');
-    ne.textContent=alias; ne.style.display='block';
-    document.getElementById('userLabel').textContent=alias;
-    document.getElementById('aliasInput').value=alias;
+  // Show cached name immediately to avoid flashing the set-name prompt on refresh.
+  const cached=localStorage.getItem('gb_alias_'+addr.toLowerCase());
+  if (cached) applyAlias(cached);
+  try {
+    const alias = await window.GL.getAlias(addr);  // chain is the source of truth
+    applyAlias(alias || '');
+  } catch(e){
+    // RPC hiccup — keep cached name; only prompt if we have nothing.
+    if (!cached) document.getElementById('aliasRow').style.display='flex';
   }
 }
 
@@ -691,9 +715,7 @@ async function registerAlias(){
     showToast('✎','confirm in your wallet','sign to set name', 6000);
     await window.GL.registerAlias(name);
     showToast('✓','name saved','welcome, '+name, 3000);
-    const ne=document.getElementById('walletDisplayName');
-    ne.textContent=name; ne.style.display='block';
-    document.getElementById('userLabel').textContent=name;
+    applyAlias(name);
   } catch(e){
     if (/4001|reject|denied/i.test(e.message||'')) showToast('✗','cancelled','', 2500);
     else showToast('!','failed',(e.message||'').slice(0,80), 5000);
