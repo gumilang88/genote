@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Genote — your private journal on GenLayer</title>
+  <meta name="description" content="Genote — a private on-chain journal on GenLayer. Connect your wallet and write entries straight to the blockchain.">
+  <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Cutive+Mono&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f0e6; --text: #1a1a1a; --surface: rgba(255,255,255,0.85);
+      --border: #c8bfb0; --border-light: #d8d0c0;
+      --muted: #6b6b6b; --muted-light: #8a8a8a; --accent: #111;
+      --invert: #f5f0e6; --shadow: rgba(0,0,0,0.06);
+      --alert-bg-err: #fff0f0; --alert-bg-ok: #f0fff4; --alert-bg-info: #f5f3ff;
+      --alert-border-err: #dc2626; --alert-border-ok: #16a34a; --alert-border-info: #7c3aed;
+      --entry-hover: rgba(0,0,0,0.03);
+    }
+    .dark { --bg: #232323; --text: #d8d4c8; --surface: rgba(255,255,255,0.06);
+      --border: #4a4a4a; --border-light: #3a3a3a; --muted: #a0a0a0; --muted-light: #7a7a7a;
+      --accent: #e0dcd0; --invert: #232323; --shadow: rgba(0,0,0,0.4);
+      --alert-bg-err: #3d1a1a; --alert-bg-ok: #1a3d1a; --alert-bg-info: #1a1a3d;
+      --entry-hover: rgba(255,255,255,0.04);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Cutive Mono', 'Courier New', monospace;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+      transition: background .2s, color .2s;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background:
+        repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(160,130,80,0.03) 1px, rgba(160,130,80,0.03) 2px),
+        repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(160,130,80,0.015) 2px, rgba(160,130,80,0.015) 3px),
+        radial-gradient(ellipse at 20% 30%, rgba(180,150,90,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 70%, rgba(140,110,60,0.03) 0%, transparent 50%);
+      pointer-events: none; z-index: 100; opacity: 0.4;
+      transition: opacity .3s;
+    }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted-light); }
+    @keyframes pageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .container { animation: pageIn .5s ease-out; max-width: 1400px; margin: 0 auto; padding: 0 48px; }
+    body::after {
+      content: ''; position: fixed; inset: 0; z-index: 99;
+      pointer-events: none; opacity: 0.06;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat; background-size: 128px 128px;
+    }
+    .dark body::before { opacity: .06; }
+    .dark body::after { opacity: 0.02; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 0 48px; }
+    .masthead { text-align: center; padding: 40px 0 18px; border-bottom: 3px solid var(--accent); margin-bottom: 20px; }
+    .masthead-top {
+      display: flex; justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted);
+      padding-bottom: 8px; border-bottom: 1px solid var(--border-light); margin-bottom: 18px;
+    }
+    h1 { font-family: 'Special Elite', 'Courier New', monospace; font-size: 52px; font-weight: 400; color: var(--accent); letter-spacing: -0.5px; line-height: 1.1; text-transform: uppercase; }
+    @keyframes typewriter { from { width: 0 } to { width: 100% } }
+    @keyframes blinkCursor { from, to { border-color: transparent } 50% { border-color: var(--accent) } }
+    .typewriter {
+      display: inline-block; overflow: hidden; white-space: nowrap;
+      border-right: 2px solid var(--accent);
+      animation: typewriter 1.2s steps(12) forwards, blinkCursor .6s step-end 4;
+    }
+    .masthead-sub { font-size: 12px; color: var(--muted); margin-top: 6px; font-style: italic; }
+    .masthead-line { border-top: 1px solid var(--accent); height: 3px; background: var(--accent); margin-top: 10px; animation: lineGrow .8s ease-out; }
+    @keyframes lineGrow { from { width: 0 } to { width: 100% } }
+    .demo-badge {
+      display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 8px;
+      text-transform: uppercase; letter-spacing: 2px; color: var(--muted-light);
+      border: 1px solid var(--border-light); padding: 4px 12px; margin-top: 8px;
+    }
+    .live-ticker {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 1px; color: var(--muted-light);
+      padding: 6px 14px; border: 1px solid var(--border-light);
+      background: var(--surface); margin-bottom: 18px;
+    }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #888; animation: pulse 1.5s ease-in-out infinite; }
+    .live-dot.active { background: #5a7a5a; box-shadow: 0 0 6px rgba(74,122,74,0.3); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .ticker-mood { margin-left: auto; font-style: normal; color: var(--muted); }
+    .ledger-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 0; border: 1px solid var(--border); margin-bottom: 20px; background: var(--surface); }
+    .ledger-stat { text-align: center; padding: 14px 8px; border-right: 1px solid var(--border-light); }
+    .ledger-stat:last-child { border-right: none; }
+    .ledger-stat .num { font-family: 'Special Elite', monospace; font-size: 24px; font-weight: 400; color: var(--accent); line-height: 1; }
+    .ledger-stat .lbl { font-family: 'JetBrains Mono', monospace; font-size: 8px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-top: 4px; }
+    .article-meta {
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      text-transform: uppercase; letter-spacing: .8px; color: var(--muted-light);
+      border-bottom: 1px solid var(--border-light); padding: 8px 0; margin-bottom: 20px;
+    }
+    .article-meta strong { color: var(--accent); font-weight: 500; }
+    .wallet-box {
+      display: flex; align-items: center; justify-content: space-between;
+      border: 1px solid var(--border); padding: 12px 18px; margin-bottom: 12px;
+      background: var(--surface); gap: 12px; flex-wrap: wrap;
+    }
+    .wallet-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+    .wallet-mark { width: 32px; height: 32px; border: 1px solid var(--muted); display: flex; align-items: center; justify-content: center; color: #555; flex-shrink: 0; }
+    .wallet-detail { min-width: 0; }
+    .wallet-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+    .wallet-addr { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); word-break: break-all; }
+    .wallet-name { font-family: 'Special Elite', monospace; font-size: 16px; color: var(--accent); display: none; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+      text-transform: uppercase; letter-spacing: 1px;
+      padding: 7px 16px; border: 1px solid var(--accent);
+      background: var(--accent); color: var(--invert); cursor: pointer; transition: all .15s;
+    }
+    .btn:hover { opacity: .8; }
+    .btn:disabled { opacity: .25; cursor: not-allowed; }
+    .btn-outline { background: transparent; color: var(--accent); }
+    .btn-outline:hover { background: var(--accent); color: var(--invert); }
+    .btn-ghost { background: transparent; border-color: transparent; color: var(--muted-light); }
+    .btn-ghost:hover { color: var(--accent); border-color: var(--border); }
+    .card { border: 1px solid var(--border); padding: 28px; margin-bottom: 20px; background: var(--surface); box-shadow: 0 1px 3px var(--shadow); }
+    .card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border-light); padding-bottom: 16px; flex-wrap: wrap; }
+    .card-icon { width: 36px; height: 36px; border: 1px solid var(--border-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--muted); }
+    .card-title { font-size: 17px; font-weight: 700; color: var(--accent); }
+    .card-sub { font-size: 12px; color: var(--muted); font-style: italic; }
+    .card-head-right { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .title-input {
+      width: 100%; font-family: 'Special Elite', serif; font-size: 18px;
+      background: transparent; border: none; border-bottom: 1px solid var(--border-light);
+      padding: 6px 2px 10px; margin-bottom: 12px; outline: none; color: var(--accent);
+    }
+    .title-input::placeholder { color: var(--muted-light); }
+    textarea {
+      width: 100%; font-family: 'Cutive Mono', 'Courier New', monospace; font-size: 15px;
+      background: rgba(255,255,255,0.3); border: 1px solid var(--border);
+      padding: 14px 16px; resize: vertical; outline: none;
+      line-height: 1.9; color: var(--text);
+      transition: border-color .2s; min-height: 100px;
+    }
+    .dark textarea { background: rgba(0,0,0,0.25); }
+    textarea:focus { border-color: var(--muted); background: rgba(255,255,255,0.6); }
+    .dark textarea:focus { background: rgba(0,0,0,0.35); }
+    textarea::placeholder { color: var(--muted-light); font-style: italic; }
+    .form-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 12px; flex-wrap: wrap; }
+    .char-count { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted-light); }
+    .alias-row { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+    .alias-row input {
+      font-family: 'Cutive Mono', monospace; font-size: 12px;
+      border: 1px solid var(--border-light); padding: 6px 10px;
+      background: rgba(255,255,255,0.3); color: var(--text); outline: none; width: 180px;
+    }
+    .dark .alias-row input { background: rgba(0,0,0,0.2); }
+    .alias-row .alias-hint { font-size: 10px; color: var(--muted-light); font-style: italic; }
+    .search-input {
+      font-family: 'Cutive Mono', monospace; font-size: 11px;
+      border: 1px solid var(--border-light); padding: 5px 10px;
+      background: rgba(255,255,255,0.3); color: var(--text); outline: none;
+      width: 160px; transition: border-color .2s;
+    }
+    .dark .search-input { background: rgba(0,0,0,0.2); }
+    .search-input:focus { border-color: var(--muted); }
+    .search-input::placeholder { color: var(--muted-light); font-style: italic; }
+    .entries { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .entry {
+      padding: 10px 14px; border: 1px solid var(--border-light);
+      border-radius: 3px; break-inside: avoid;
+      position: relative; background: var(--surface);
+      transition: box-shadow .15s, transform .15s; cursor: pointer;
+    }
+    .entry:hover {
+      box-shadow: 0 2px 12px var(--shadow);
+      transform: translateY(-1px);
+    }
+    .entry-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+    .entry-author { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--muted); }
+    .entry-time { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--muted-light); }
+    .entry-body { font-size: 13px; line-height: 1.7; color: var(--accent); word-break: break-word; }
+    .entry-body b { font-family: 'Special Elite', serif; font-weight: 700; font-size: 14px; color: var(--accent); }
+    .entry-del {
+      position: absolute; top: 6px; right: 8px; background: none; border: none;
+      color: var(--muted-light); cursor: pointer; font-size: 13px; opacity: 0; transition: opacity .15s;
+    }
+    .entry:hover .entry-del { opacity: 1; }
+    .entry-del:hover { color: #c33; }
+    .empty-state { text-align: center; padding: 60px 20px; grid-column: 1 / -1; }
+    .empty-symbol { font-size: 36px; color: var(--border-light); display: block; margin-bottom: 12px; font-family: 'Special Elite', serif; }
+    .empty-title { font-size: 16px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    .empty-desc { font-size: 12px; color: var(--muted-light); font-style: italic; line-height: 1.8; }
+    .empty-line { width: 40px; height: 1px; background: var(--border-light); margin: 10px auto; }
+    @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulseGlow { 0% { box-shadow: 0 0 0 0 rgba(90,122,90,0.3); } 50% { box-shadow: 0 0 0 6px rgba(90,122,90,0); } 100% { box-shadow: 0 1px 4px var(--shadow); } }
+    .entry.anim-glow { animation: pulseGlow .8s ease-out; }
+    .entry.anim-stagger { animation: fadeSlideIn .35s ease-out both; }
+    .toast {
+      position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-80px);
+      background: var(--bg); border: 1px solid var(--accent);
+      padding: 16px 28px; z-index: 300; text-align: center;
+      opacity: 0; transition: all .4s cubic-bezier(.34,1.56,.64,1);
+      pointer-events: none; max-width: 400px;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast .icon { font-size: 28px; display: block; margin-bottom: 6px; }
+    .toast .msg { font-size: 13px; color: var(--accent); }
+    .toast .sub { font-size: 10px; color: var(--muted); margin-top: 4px; font-style: italic; }
+    .preview-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      display: none; align-items: center; justify-content: center; z-index: 500;
+      cursor: pointer; backdrop-filter: blur(4px);
+    }
+    .preview-modal.show { display: flex; }
+    .preview-modal-inner {
+      background: var(--bg); border: 1px solid var(--accent);
+      max-width: 520px; width: 90%; max-height: 85vh; overflow-y: auto;
+      cursor: default; padding: 32px; position: relative;
+    }
+    .preview-modal-close { position: absolute; top: 12px; right: 16px; color: var(--muted-light); font-size: 22px; cursor: pointer; }
+    .preview-modal-close:hover { color: var(--accent); }
+    .preview-modal-head { font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted-light); margin-bottom: 8px; }
+    .preview-modal-body { font-family: 'Cutive Mono', monospace; font-size: 15px; line-height: 1.9; color: var(--accent); margin-bottom: 16px; white-space: pre-wrap; }
+    .preview-modal-foot { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted-light); margin-top: 12px; text-align: right; }
+    .page-footer {
+      text-align: center; padding: 24px 0 48px;
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 2px; color: var(--muted-light);
+      border-top: 2px solid var(--border-light); margin-top: 8px;
+    }
+    .page-footer a { color: var(--muted); text-decoration: none; cursor: pointer; }
+    .page-footer a:hover { color: var(--accent); }
+    .demo-note {
+      text-align: center; padding: 14px; margin-bottom: 20px;
+      border: 1px dashed var(--border-light);
+      font-family: 'JetBrains Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 1px; color: var(--muted-light);
+      background: var(--surface); line-height: 1.8;
+    }
+    .demo-note a { color: var(--muted); text-decoration: underline; }
+    .demo-note a:hover { color: var(--accent); }
+    @media (max-width:1200px) { .entries { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width:1024px) { .entries { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width:740px) { .entries { grid-template-columns: 1fr; } .container { padding: 0 16px; } h1 { font-size: 30px; } .masthead-top { flex-direction: column; align-items: center; gap: 4px; } .ledger-stats { grid-template-columns: repeat(2,1fr); } .ledger-stat:nth-child(2) { border-right: none; } .ledger-stat:nth-child(3) { border-right: 1px solid var(--border-light); } .card { padding: 18px; } .wallet-box { flex-direction: column; align-items: flex-start; gap: 10px; } .card-head-right { margin-left: 0; width: 100%; } .search-input { width: 100%; } .ticker-mood { margin-left: 0; width: 100%; } }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="masthead">
+    <div class="masthead-top">
+      <span>genlayer asimov testnet</span>
+      <span>your private journal</span>
+      <span id="dateDisplay"></span>
+    </div>
+    <h1><span class="typewriter">Genote</span></h1>
+    <div class="masthead-sub">your private journal on genlayer</div>
+    <div class="demo-badge">&diams; live on-chain</div>
+    <div class="masthead-line"></div>
+  </div>
+
+  <div class="demo-note">
+    &#9733; live demo on the genlayer asimov testnet &mdash; connect metamask &amp; write entries straight to the blockchain.<br>
+    need testnet GEN? grab some from the <a href="https://faucet.genlayer.com" target="_blank" rel="noopener">genlayer faucet</a> first.
+  </div>
+
+  <div class="live-ticker" id="liveTicker">
+    <span class="live-dot" id="liveDot"></span>
+    <span id="tickerText">not connected</span>
+    <span class="ticker-mood" id="tickerMood"></span>
+  </div>
+
+  <div class="ledger-stats">
+    <div class="ledger-stat"><div class="num" id="statMine">0</div><div class="lbl">my entries</div></div>
+    <div class="ledger-stat"><div class="num" id="statTotal">&mdash;</div><div class="lbl">total entries</div></div>
+    <div class="ledger-stat"><div class="num" id="statUsers">&mdash;</div><div class="lbl">users</div></div>
+    <div class="ledger-stat"><div class="num" id="statLast">&mdash;</div><div class="lbl">latest</div></div>
+  </div>
+
+  <!-- Wallet -->
+  <div class="wallet-box">
+    <div class="wallet-left">
+      <div class="wallet-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg></div>
+      <div class="wallet-detail">
+        <div class="wallet-label" id="walletLabel">wallet</div>
+        <div class="wallet-name" id="walletDisplayName"></div>
+        <div class="wallet-addr" id="walletAddr">connect to view &amp; write your entries</div>
+      </div>
+    </div>
+    <button class="btn" id="connectBtn">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> connect
+    </button>
+  </div>
+
+  <div class="article-meta">
+    <span><strong id="userLabel">connect wallet</strong></span>
+    <span><strong id="msgCount"></strong></span>
+  </div>
+
+  <!-- Compose -->
+  <div class="card" id="composeCard">
+    <div class="card-head">
+      <div class="card-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></div>
+      <div>
+        <div class="card-title">New Entry</div>
+        <div class="card-sub" id="composeSub">connect your wallet to write on-chain</div>
+      </div>
+    </div>
+    <input type="text" class="title-input" id="titleInput" placeholder="title (optional)" maxlength="120" disabled>
+    <textarea id="msgInput" placeholder="write what you want to remember from today..." maxlength="2000" disabled></textarea>
+    <div class="form-foot">
+      <span class="char-count" id="charCount">0 / 2000</span>
+      <button class="btn" id="submitBtn" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> sign &amp; submit
+      </button>
+    </div>
+    <div class="alias-row" id="aliasRow" style="display:none">
+      <input type="text" id="aliasInput" placeholder="display name" maxlength="30">
+      <button class="btn btn-outline" id="aliasBtn">set name</button>
+      <span class="alias-hint">optional &mdash; saved on-chain</span>
+    </div>
+  </div>
+
+  <!-- Entries -->
+  <div class="card" style="margin-bottom:0">
+    <div class="card-head">
+      <div class="card-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+      <div>
+        <div class="card-title">Your Private Record</div>
+        <div class="card-sub" id="entrySub">connect wallet to load your entries</div>
+      </div>
+      <div class="card-head-right">
+        <input type="text" class="search-input" id="searchInput" placeholder="search..." oninput="filterEntries()">
+        <a class="btn btn-ghost" onclick="window.exportTxt()" title="export txt">&#8600;</a>
+        <a class="btn btn-ghost" onclick="window.loadMyEntries()" title="refresh">&#8635;</a>
+      </div>
+    </div>
+    <div class="entries" id="entries"></div>
+  </div>
+
+  <div class="page-footer">
+    <a onclick="window.toggleDark()" id="darkToggle">&#9632; dark</a>
+    &nbsp;&middot;&nbsp;
+    <strong>genote</strong> &middot; on genlayer asimov &middot; <span id="edition">morning edition</span>
+    &nbsp;&middot;&nbsp;
+    <a href="https://github.com/gumilang88/genote" target="_blank" rel="noopener">source</a>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <span class="icon" id="toastIcon">&#10003;</span>
+  <div class="msg" id="toastMsg">done.</div>
+  <div class="sub" id="toastSub"></div>
+</div>
+
+<div class="preview-modal" id="previewModal" onclick="window.closePreview()">
+  <div class="preview-modal-inner" onclick="event.stopPropagation()">
+    <span class="preview-modal-close" onclick="window.closePreview()">&times;</span>
+    <div class="preview-modal-head" id="previewModalHead">entry</div>
+    <div class="preview-modal-body" id="previewModalBody"></div>
+    <div class="preview-modal-foot" id="previewModalFoot"></div>
+  </div>
+</div>
+
+<!-- ── GenLayer SDK bridge (ES module) ── -->
+<script type="module">
+  import { createClient } from "https://esm.sh/genlayer-js@1.1.8";
+  import { testnetAsimov } from "https://esm.sh/genlayer-js@1.1.8/chains";
+  import { TransactionStatus } from "https://esm.sh/genlayer-js@1.1.8/types";
+
+  const CONTRACT = "0x4170c04aCb740A66579a041390a35Bb1766C275a";
+
+  let readClient = createClient({ chain: testnetAsimov });
+  let writeClient = null;
+  let account = null;
+
+  const num = (v) => (typeof v === "bigint" ? Number(v) : (typeof v === "number" ? v : Number(v) || 0));
+
+  window.GL = {
+    ready: true,
+    get account() { return account; },
+
+    async connect() {
+      if (!window.ethereum) throw new Error("MetaMask not found");
+      const accs = await window.ethereum.request({ method: "eth_requestAccounts" });
+      account = accs[0];
+      writeClient = createClient({ chain: testnetAsimov, account, provider: window.ethereum });
+      // Switch MetaMask to GenLayer Asimov (adds the network if missing)
+      try { await writeClient.connect("testnetAsimov"); } catch (e) { /* user may already be on chain */ }
+      return account;
+    },
+
+    disconnect() { account = null; writeClient = null; },
+
+    async myEntries() {
+      if (!account) return [];
+      const res = await readClient.readContract({
+        address: CONTRACT, functionName: "my_entries", args: [], account,
+      });
+      const list = Array.isArray(res) ? res : [];
+      return list.map((e) => ({
+        index: num(e.index),
+        content: String(e.content ?? ""),
+        timestamp: num(e.timestamp),
+        image_url: String(e.image_url ?? ""),
+      }));
+    },
+
+    async totals() {
+      const [total, users] = await Promise.all([
+        readClient.readContract({ address: CONTRACT, functionName: "total_entries", args: [] }),
+        readClient.readContract({ address: CONTRACT, functionName: "total_users", args: [] }),
+      ]);
+      return { total: num(total), users: num(users) };
+    },
+
+    async getAlias(addr) {
+      try {
+        const a = await readClient.readContract({ address: CONTRACT, functionName: "get_alias", args: [addr] });
+        return String(a ?? "");
+      } catch (e) { return ""; }
+    },
+
+    async submit(content) {
+      const hash = await writeClient.writeContract({
+        address: CONTRACT, functionName: "submit", args: [content], value: 0n,
+      });
+      await writeClient.waitForTransactionReceipt({ hash, status: TransactionStatus.ACCEPTED });
+      return hash;
+    },
+
+    async deleteEntry(index) {
+      const hash = await writeClient.writeContract({
+        address: CONTRACT, functionName: "delete_entry", args: [index], value: 0n,
+      });
+      await writeClient.waitForTransactionReceipt({ hash, status: TransactionStatus.ACCEPTED });
+      return hash;
+    },
+
+    async registerAlias(name) {
+      const hash = await writeClient.writeContract({
+        address: CONTRACT, functionName: "register_alias", args: [name], value: 0n,
+      });
+      await writeClient.waitForTransactionReceipt({ hash, status: TransactionStatus.ACCEPTED });
+      return hash;
+    },
+  };
+
+  window.dispatchEvent(new Event("gl-ready"));
+</script>
+
+<!-- ── App logic ── -->
+<script>
+let allEntries = [];
+let addr = null;
+let connecting = false;
+
+document.getElementById('dateDisplay').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+(function(){ if (localStorage.getItem('gb-dark')==='1') document.body.classList.add('dark'); updateDarkToggle(); })();
+updateEdition(); setInterval(updateEdition, 60000);
+
+function updateEdition() {
+  const h = new Date().getHours();
+  document.getElementById('edition').textContent =
+    h<12?'morning edition':h<17?'afternoon edition':h<21?'evening edition':'night edition';
+}
+
+// ── Wait for the SDK bridge ──
+function whenReady(cb){ if (window.GL && window.GL.ready) cb(); else window.addEventListener('gl-ready', cb, { once:true }); }
+
+whenReady(function(){
+  document.getElementById('connectBtn').onclick = connect;
+  document.getElementById('submitBtn').onclick = submitMsg;
+  document.getElementById('aliasBtn').onclick = registerAlias;
+  loadTotals();
+  // auto-reconnect if MetaMask already authorized
+  if (window.ethereum) {
+    window.ethereum.request({ method:'eth_accounts' }).then(function(accs){
+      if (accs && accs.length && localStorage.getItem('gb_addr')) connect();
+    }).catch(function(){});
+    window.ethereum.on && window.ethereum.on('accountsChanged', function(){ disconnect(); });
+  }
+});
+
+const msgInput = document.getElementById('msgInput');
+msgInput.addEventListener('input', function(){ document.getElementById('charCount').textContent=this.value.length+' / 2000'; });
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closePreview();
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { submitMsg(); e.preventDefault(); }
+});
+
+// ── Connect ──
+async function connect(){
+  if (connecting) return;
+  if (!window.ethereum) { showToast('!','MetaMask not found','install the MetaMask extension', 4000); return; }
+  connecting = true;
+  const btn=document.getElementById('connectBtn'); btn.disabled=true; const prev=btn.innerHTML; btn.textContent='...';
+  try {
+    addr = await window.GL.connect();
+    localStorage.setItem('gb_addr', addr);
+    document.getElementById('walletLabel').textContent='connected';
+    document.getElementById('walletAddr').textContent=addr.slice(0,6)+'...'+addr.slice(-4);
+    setEnabled(true);
+    btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> disconnect';
+    btn.disabled=false; btn.className='btn btn-outline'; btn.onclick=disconnect;
+    document.getElementById('liveDot').classList.add('active');
+    document.getElementById('tickerText').textContent='connected';
+    await loadAlias();
+    await loadMyEntries();
+    await loadTotals();
+  } catch(e){
+    btn.innerHTML=prev; btn.disabled=false;
+    if (!/4001|reject|denied/i.test(e.message||'')) showToast('!','connection failed', (e.message||'').slice(0,60), 4000);
+  } finally { connecting = false; }
+}
+
+function disconnect(){
+  addr=null; allEntries=[]; window.GL.disconnect();
+  localStorage.removeItem('gb_addr');
+  document.getElementById('walletLabel').textContent='wallet';
+  document.getElementById('walletAddr').textContent='connect to view & write your entries';
+  document.getElementById('walletDisplayName').style.display='none';
+  document.getElementById('userLabel').textContent='connect wallet';
+  document.getElementById('msgCount').textContent='';
+  document.getElementById('statMine').textContent='0';
+  document.getElementById('statLast').textContent='—';
+  document.getElementById('liveDot').classList.remove('active');
+  document.getElementById('tickerText').textContent='not connected';
+  document.getElementById('aliasRow').style.display='none';
+  setEnabled(false);
+  const btn=document.getElementById('connectBtn');
+  btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> connect';
+  btn.className='btn'; btn.onclick=connect;
+  renderEntries([]);
+  document.getElementById('entrySub').textContent='connect wallet to load your entries';
+  document.getElementById('composeSub').textContent='connect your wallet to write on-chain';
+}
+
+function setEnabled(on){
+  document.getElementById('titleInput').disabled=!on;
+  document.getElementById('msgInput').disabled=!on;
+  document.getElementById('submitBtn').disabled=!on;
+  document.getElementById('aliasRow').style.display=on?'flex':'none';
+  if (on) {
+    document.getElementById('userLabel').textContent=addr.slice(0,6)+'...'+addr.slice(-4);
+    document.getElementById('composeSub').textContent='your entry will be signed by your wallet';
+  }
+}
+
+// ── Reads ──
+async function loadTotals(){
+  try {
+    const { total, users } = await window.GL.totals();
+    document.getElementById('statTotal').textContent=total;
+    document.getElementById('statUsers').textContent=users;
+  } catch(e){ /* RPC may be slow; leave dashes */ }
+}
+
+async function loadAlias(){
+  if (!addr) return;
+  const alias = await window.GL.getAlias(addr);
+  if (alias) {
+    const ne=document.getElementById('walletDisplayName');
+    ne.textContent=alias; ne.style.display='block';
+    document.getElementById('userLabel').textContent=alias;
+    document.getElementById('aliasInput').value=alias;
+  }
+}
+
+async function loadMyEntries(){
+  if (!addr) { renderEntries([]); return; }
+  document.getElementById('entrySub').textContent='loading from chain...';
+  try {
+    allEntries = await window.GL.myEntries();
+    renderEntries(allEntries);
+    document.getElementById('statMine').textContent=allEntries.length;
+    if (allEntries.length) {
+      const last = allEntries[allEntries.length-1];
+      if (last.timestamp) {
+        const d=new Date(last.timestamp*1000);
+        document.getElementById('statLast').textContent = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+      }
+    }
+  } catch(e){
+    document.getElementById('entrySub').textContent='could not load entries';
+    showToast('!','read failed',(e.message||'').slice(0,60), 4000);
+  }
+}
+window.loadMyEntries = loadMyEntries;
+
+// ── Submit ──
+async function submitMsg(){
+  if (!addr) return;
+  const title=document.getElementById('titleInput').value.trim();
+  const body=document.getElementById('msgInput').value.trim();
+  if (!title && !body) return;
+  const content = title ? (title + '\n\n' + body) : body;
+  const btn=document.getElementById('submitBtn'); btn.disabled=true; const prev=btn.innerHTML;
+  btn.textContent='signing...';
+  try {
+    showToast('✎','confirm in your wallet','sign the transaction', 6000);
+    await window.GL.submit(content);
+    showToast('✓','saved on-chain','entry recorded on genlayer', 4000);
+    document.getElementById('titleInput').value='';
+    document.getElementById('msgInput').value='';
+    document.getElementById('charCount').textContent='0 / 2000';
+    await loadMyEntries();
+    await loadTotals();
+    const first=document.querySelector('#entries .entry');
+    if (first) first.classList.add('anim-glow');
+  } catch(e){
+    if (/4001|reject|denied/i.test(e.message||'')) showToast('✗','cancelled','you declined the signature', 3000);
+    else showToast('!','submit failed',(e.message||'').slice(0,80), 5000);
+  }
+  btn.innerHTML=prev; btn.disabled=false;
+}
+
+// ── Delete ──
+async function deleteEntry(index){
+  if (!addr) return;
+  if (!confirm('Delete this entry on-chain? This requires a wallet signature.')) return;
+  try {
+    showToast('✎','confirm in your wallet','sign to delete', 6000);
+    await window.GL.deleteEntry(index);
+    showToast('✓','deleted','entry removed from your record', 3000);
+    await loadMyEntries();
+    await loadTotals();
+  } catch(e){
+    if (/4001|reject|denied/i.test(e.message||'')) showToast('✗','cancelled','', 2500);
+    else showToast('!','delete failed',(e.message||'').slice(0,80), 5000);
+  }
+}
+window.deleteEntry = deleteEntry;
+
+// ── Alias ──
+async function registerAlias(){
+  if (!addr) return;
+  const name=document.getElementById('aliasInput').value.trim();
+  if (!name) return;
+  const btn=document.getElementById('aliasBtn'); btn.disabled=true; const prev=btn.textContent; btn.textContent='...';
+  try {
+    showToast('✎','confirm in your wallet','sign to set name', 6000);
+    await window.GL.registerAlias(name);
+    showToast('✓','name saved','welcome, '+name, 3000);
+    const ne=document.getElementById('walletDisplayName');
+    ne.textContent=name; ne.style.display='block';
+    document.getElementById('userLabel').textContent=name;
+  } catch(e){
+    if (/4001|reject|denied/i.test(e.message||'')) showToast('✗','cancelled','', 2500);
+    else showToast('!','failed',(e.message||'').slice(0,80), 5000);
+  }
+  btn.textContent=prev; btn.disabled=false;
+}
+
+// ── Render ──
+function renderEntries(msgs) {
+  const el=document.getElementById('entries');
+  const search=document.getElementById('searchInput').value.toLowerCase().trim();
+  if (!msgs||!msgs.length){
+    el.innerHTML = addr
+      ? '<div class="empty-state"><span class="empty-symbol">~</span><div class="empty-title">No entries yet</div><div class="empty-line"></div><div class="empty-desc">write your first entry above &mdash;<br>it will live on the genlayer testnet</div></div>'
+      : '<div class="empty-state"><span class="empty-symbol">~</span><div class="empty-title">Not connected</div><div class="empty-line"></div><div class="empty-desc">connect your wallet to read &amp; write<br>your private on-chain journal</div></div>';
+    document.getElementById('msgCount').textContent='';
+    return;
+  }
+  let html='', count=0;
+  for(let i=msgs.length-1;i>=0;i--){
+    const m=msgs[i], content=m.content||'';
+    if(search&&!content.toLowerCase().includes(search)) continue;
+    count++;
+    const ts=m.timestamp?new Date(m.timestamp*1000).toLocaleString():'';
+    const parts = content.split('\n\n');
+    let cardTitle = parts[0] || content;
+    let titleHtml;
+    if (parts.length >= 2 && parts[1].trim()) {
+      titleHtml = '<b>' + esc(cardTitle) + '</b>';
+    } else {
+      cardTitle = content.length > 50 ? content.substring(0, 50) + '...' : content;
+      titleHtml = esc(cardTitle);
+    }
+    html+='<div class="entry" onclick="window.openPreview('+m.index+')">'
+      +'<button class="entry-del" title="delete" onclick="event.stopPropagation();window.deleteEntry('+m.index+')">&times;</button>'
+      +'<div class="entry-head"><span class="entry-author">#'+m.index+'</span><span class="entry-time">'+ts+'</span></div>'
+      +'<div class="entry-body">'+titleHtml+'</div></div>';
+  }
+  if(!html) html='<div class="empty-state"><span class="empty-symbol">~</span><div class="empty-title">No matches</div><div class="empty-line"></div><div class="empty-desc">no entries match "'+esc(search)+'"</div></div>';
+  el.innerHTML=html;
+  el.querySelectorAll('.entry').forEach((e, i) => {
+    e.style.opacity='0';
+    setTimeout(()=>{ e.classList.add('anim-stagger'); e.style.opacity=''; }, 30 + i*40);
+  });
+  document.getElementById('msgCount').textContent=count+' entr'+(count!==1?'ies':'y');
+  document.getElementById('entrySub').textContent=count+' entr'+(count!==1?'ies':'y')+' on-chain';
+}
+
+function filterEntries(){ renderEntries(allEntries); }
+window.filterEntries = filterEntries;
+
+// ── Preview ──
+function openPreview(idx) {
+  const entry = allEntries.find(e => e.index === idx);
+  if (!entry) return;
+  document.getElementById('previewModalHead').textContent = 'entry #' + idx;
+  document.getElementById('previewModalBody').textContent = entry.content || '';
+  const ts = entry.timestamp ? new Date(entry.timestamp * 1000).toLocaleString() : '';
+  document.getElementById('previewModalFoot').textContent = ts;
+  document.getElementById('previewModal').classList.add('show');
+}
+window.openPreview = openPreview;
+function closePreview() { document.getElementById('previewModal').classList.remove('show'); }
+window.closePreview = closePreview;
+
+// ── Export ──
+function exportTxt() {
+  if(!allEntries.length) { showToast('--','no entries to export','',2000); return; }
+  let txt='=== Genote Export ===\nAddress: '+(addr||'')+'\nGenerated: '+new Date().toISOString()+'\n\n';
+  for (let i=allEntries.length-1;i>=0;i--){
+    const m=allEntries[i], ts=m.timestamp?new Date(m.timestamp*1000).toLocaleString():'(unknown)';
+    txt+='--- Entry #'+m.index+' | '+ts+'\n'+(m.content||'')+'\n\n';
+  }
+  const blob=new Blob([txt],{type:'text/plain'}), a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='genote-export.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  showToast('✓','exported as txt','',2000);
+}
+window.exportTxt = exportTxt;
+
+// ── Dark Mode ──
+function toggleDark(){ document.body.classList.toggle('dark'); localStorage.setItem('gb-dark',document.body.classList.contains('dark')?'1':'0'); updateDarkToggle(); }
+window.toggleDark = toggleDark;
+function updateDarkToggle(){ document.getElementById('darkToggle').textContent=document.body.classList.contains('dark')?'■ light':'■ dark'; }
+
+// ── Toast ──
+function showToast(icon, msg, sub, duration) {
+  document.getElementById('toastIcon').textContent = icon;
+  document.getElementById('toastMsg').textContent = msg;
+  document.getElementById('toastSub').textContent = sub || '';
+  const el = document.getElementById('toast');
+  el.classList.add('show');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('show'), duration || 3000);
+}
+
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+renderEntries([]);
+</script>
+</body>
+</html>
