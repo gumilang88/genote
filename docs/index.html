@@ -253,6 +253,31 @@
     .mic-btn:disabled { opacity: .35; cursor: not-allowed; }
     .mic-btn.recording { border-color: #c33; color: #c33; animation: pulse 1s infinite; }
     .prompt-hint { font-size: 12px; color: var(--muted-light); font-style: italic; margin-top: 12px; min-height: 16px; transition: opacity .3s; }
+    /* loading skeleton for history */
+    @keyframes shimmer { 0% { background-position: -260px 0; } 100% { background-position: 260px 0; } }
+    .skeleton-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .skeleton-card { border: 1px solid var(--border-light); border-radius: 3px; padding: 14px; background: var(--surface); }
+    .skeleton-line { height: 9px; border-radius: 2px; margin-bottom: 8px;
+      background: linear-gradient(90deg, var(--border-light) 25%, var(--surface) 50%, var(--border-light) 75%);
+      background-size: 520px 100%; animation: shimmer 1.2s ease-in-out infinite; }
+    .skeleton-line.short { width: 45%; } .skeleton-line.mid { width: 75%; } .skeleton-line:last-child { margin-bottom: 0; }
+    @media (max-width:1200px) { .skeleton-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width:1024px) { .skeleton-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width:740px) { .skeleton-grid { grid-template-columns: 1fr; } }
+    /* inline spinner (buttons / toast) */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid currentColor;
+      border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; }
+    .toast .spinner { width: 22px; height: 22px; border-width: 3px; color: var(--accent); margin-bottom: 6px; }
+    /* full-width transaction progress bar under the compose card */
+    .tx-status { display: none; align-items: center; gap: 10px; margin-top: 14px; padding: 10px 14px;
+      border: 1px solid var(--border-light); background: var(--surface);
+      font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+    .tx-status.show { display: flex; }
+    .tx-status .bar { flex: 1; height: 3px; background: var(--border-light); overflow: hidden; position: relative; }
+    .tx-status .bar::after { content: ''; position: absolute; left: 0; top: 0; height: 100%; width: 40%;
+      background: var(--accent); animation: txslide 1.1s ease-in-out infinite; }
+    @keyframes txslide { 0% { left: -40%; } 100% { left: 100%; } }
     .page-footer {
       text-align: center; padding: 24px 0 48px;
       font-family: 'JetBrains Mono', monospace; font-size: 9px;
@@ -358,6 +383,7 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> sign &amp; submit
       </button>
     </div>
+    <div class="tx-status" id="txStatus"><span class="bar"></span><span id="txStatusText">waiting for confirmation...</span></div>
   </div>
 
   <!-- Entries -->
@@ -630,19 +656,32 @@ async function loadAlias(){
   if (!addr) return;
   // Show cached name immediately to avoid flashing the set-name prompt on refresh.
   const cached=localStorage.getItem('gb_alias_'+addr.toLowerCase());
-  if (cached) applyAlias(cached);
+  if (cached) { applyAlias(cached); return; }   // once set, the name is permanent — never re-prompt
+  // No cached name yet — ask the chain.
   try {
-    const alias = await window.GL.getAlias(addr);  // chain is the source of truth
-    applyAlias(alias || '');
+    const alias = await window.GL.getAlias(addr);
+    applyAlias(alias || '');                      // empty => show prompt for a brand-new wallet
   } catch(e){
-    // RPC hiccup — keep cached name; only prompt if we have nothing.
-    if (!cached) document.getElementById('aliasRow').style.display='flex';
+    document.getElementById('aliasRow').style.display='flex';
   }
 }
+
+function showSkeleton(){
+  const el=document.getElementById('entries');
+  el.className='entries';
+  let cards='';
+  for(let i=0;i<8;i++) cards+='<div class="skeleton-card"><div class="skeleton-line short"></div><div class="skeleton-line"></div><div class="skeleton-line mid"></div></div>';
+  el.innerHTML='<div class="skeleton-grid">'+cards+'</div>';
+}
+
+// Transaction progress bar (under compose card). Pass a message; call hideTx() when done.
+function showTx(msg){ document.getElementById('txStatusText').textContent=msg||'waiting for confirmation...'; document.getElementById('txStatus').classList.add('show'); }
+function hideTx(){ document.getElementById('txStatus').classList.remove('show'); }
 
 async function loadMyEntries(){
   if (!addr) { renderEntries([]); return; }
   document.getElementById('entrySub').textContent='loading from chain...';
+  showSkeleton();
   try {
     allEntries = await window.GL.myEntries();
     renderEntries(allEntries);
@@ -669,19 +708,23 @@ async function submitMsg(){
   if (!title && !body) return;
   const content = title ? (title + '\n\n' + body) : body;
   const btn=document.getElementById('submitBtn'); btn.disabled=true; const prev=btn.innerHTML;
-  btn.textContent='signing...';
+  btn.innerHTML='<span class="spinner"></span> signing...';
   try {
-    showToast('✎','confirm in your wallet','sign the transaction', 6000);
+    showToastLoading('confirm in your wallet','sign the transaction');
+    showTx('submitting to genlayer — awaiting consensus...');
     await window.GL.submit(content);
+    hideTx();
     showToast('✓','saved on-chain','entry recorded on genlayer', 4000);
     document.getElementById('titleInput').value='';
     document.getElementById('msgInput').value='';
     document.getElementById('charCount').textContent='0 / 2000';
+    localStorage.removeItem('gb_draft');
     await loadMyEntries();
     await loadTotals();
     const first=document.querySelector('#entries .entry');
     if (first) first.classList.add('anim-glow');
   } catch(e){
+    hideTx();
     if (/4001|reject|denied/i.test(e.message||'')) showToast('✗','cancelled','you declined the signature', 3000);
     else showToast('!','submit failed',(e.message||'').slice(0,80), 5000);
   }
@@ -693,12 +736,15 @@ async function deleteEntry(index){
   if (!addr) return;
   if (!confirm('Delete this entry on-chain? This requires a wallet signature.')) return;
   try {
-    showToast('✎','confirm in your wallet','sign to delete', 6000);
+    showToastLoading('confirm in your wallet','sign to delete');
+    showTx('deleting — awaiting consensus...');
     await window.GL.deleteEntry(index);
+    hideTx();
     showToast('✓','deleted','entry removed from your record', 3000);
     await loadMyEntries();
     await loadTotals();
   } catch(e){
+    hideTx();
     if (/4001|reject|denied/i.test(e.message||'')) showToast('✗','cancelled','', 2500);
     else showToast('!','delete failed',(e.message||'').slice(0,80), 5000);
   }
@@ -710,17 +756,20 @@ async function registerAlias(){
   if (!addr) return;
   const name=document.getElementById('aliasInput').value.trim();
   if (!name) return;
-  const btn=document.getElementById('aliasBtn'); btn.disabled=true; const prev=btn.textContent; btn.textContent='...';
+  const btn=document.getElementById('aliasBtn'); btn.disabled=true; const prev=btn.innerHTML; btn.innerHTML='<span class="spinner"></span>';
   try {
-    showToast('✎','confirm in your wallet','sign to set name', 6000);
+    showToastLoading('confirm in your wallet','sign to set name');
+    showTx('saving name — awaiting consensus...');
     await window.GL.registerAlias(name);
+    hideTx();
     showToast('✓','name saved','welcome, '+name, 3000);
     applyAlias(name);
   } catch(e){
+    hideTx();
     if (/4001|reject|denied/i.test(e.message||'')) showToast('✗','cancelled','', 2500);
     else showToast('!','failed',(e.message||'').slice(0,80), 5000);
   }
-  btn.textContent=prev; btn.disabled=false;
+  btn.innerHTML=prev; btn.disabled=false;
 }
 
 // ── Render ──
@@ -813,6 +862,16 @@ function showToast(icon, msg, sub, duration) {
   el.classList.add('show');
   clearTimeout(el._timer);
   el._timer = setTimeout(() => el.classList.remove('show'), duration || 3000);
+}
+// Toast with an animated spinner instead of an icon; stays until replaced.
+function showToastLoading(msg, sub) {
+  document.getElementById('toastIcon').innerHTML = '<span class="spinner"></span>';
+  document.getElementById('toastMsg').textContent = msg;
+  document.getElementById('toastSub').textContent = sub || '';
+  const el = document.getElementById('toast');
+  el.classList.add('show');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('show'), 30000);
 }
 
 function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
