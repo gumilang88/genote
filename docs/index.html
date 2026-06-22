@@ -224,6 +224,33 @@
     .preview-modal-head { font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted-light); margin-bottom: 8px; }
     .preview-modal-body { font-family: 'Cutive Mono', monospace; font-size: 15px; line-height: 1.9; color: var(--accent); margin-bottom: 16px; white-space: pre-wrap; }
     .preview-modal-foot { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted-light); margin-top: 12px; text-align: right; }
+    /* magazine view */
+    .entries.magazine { display: block; }
+    .entries.magazine .entry { padding: 18px 0; margin-bottom: 0; border: none; border-bottom: 1px solid var(--border-light); border-radius: 0; }
+    .entries.magazine .entry:first-child { border: 1px solid var(--border); padding: 24px; margin-bottom: 12px; background: var(--surface); }
+    .entries.magazine .entry:first-child .entry-body { font-size: 17px; }
+    .entries.magazine .entry:last-child { border-bottom: none; }
+    /* surprise */
+    .surprise-card { display: none; border: 1px solid var(--border); padding: 24px; margin-bottom: 20px; background: var(--surface); position: relative; }
+    .surprise-card.show { display: block; }
+    .surprise-head { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted-light); margin-bottom: 10px; }
+    .surprise-body { font-size: 16px; line-height: 1.8; color: var(--accent); font-family: 'Special Elite', serif; white-space: pre-wrap; }
+    .surprise-meta { font-size: 9px; color: var(--muted-light); margin-top: 8px; font-family: 'JetBrains Mono', monospace; }
+    .surprise-close { position: absolute; top: 8px; right: 12px; background: none; border: none; color: var(--muted-light); cursor: pointer; font-size: 18px; }
+    /* analytics */
+    .analytics { display: none; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .analytics.show { display: flex; }
+    .analytics-card { flex: 1; min-width: 120px; border: 1px solid var(--border-light); padding: 12px 16px; background: var(--surface); text-align: center; }
+    .analytics-card .val { font-family: 'Special Elite', serif; font-size: 20px; color: var(--accent); }
+    .analytics-card .lbl { font-size: 8px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted-light); margin-top: 2px; }
+    .analytics-card .sub { font-size: 9px; color: var(--muted-light); margin-top: 4px; }
+    /* compose helpers */
+    .compose-tools { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .mic-btn { display: inline-flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; padding: 6px 12px; border: 1px solid var(--border-light); background: transparent; color: var(--muted); cursor: pointer; }
+    .mic-btn:hover:not(:disabled) { border-color: var(--muted); color: var(--accent); }
+    .mic-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .mic-btn.recording { border-color: #c33; color: #c33; animation: pulse 1s infinite; }
+    .prompt-hint { font-size: 12px; color: var(--muted-light); font-style: italic; margin-top: 12px; min-height: 16px; transition: opacity .3s; }
     .page-footer {
       text-align: center; padding: 24px 0 48px;
       font-family: 'JetBrains Mono', monospace; font-size: 9px;
@@ -309,6 +336,12 @@
     </div>
     <input type="text" class="title-input" id="titleInput" placeholder="title (optional)" maxlength="120" disabled>
     <textarea id="msgInput" placeholder="write what you want to remember from today..." maxlength="2000" disabled></textarea>
+    <div class="prompt-hint" id="promptText"></div>
+    <div class="compose-tools">
+      <button class="mic-btn" id="micBtn" type="button" onclick="window.toggleMic()" disabled>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg> voice
+      </button>
+    </div>
     <div class="form-foot">
       <span class="char-count" id="charCount">0 / 2000</span>
       <button class="btn" id="submitBtn" disabled>
@@ -332,11 +365,22 @@
       </div>
       <div class="card-head-right">
         <input type="text" class="search-input" id="searchInput" placeholder="search..." oninput="filterEntries()">
+        <a class="btn btn-ghost" onclick="window.surpriseMe()" title="surprise me">&#9733;</a>
+        <a class="btn btn-ghost" onclick="window.toggleView()" title="toggle view">&#9776;</a>
+        <a class="btn btn-ghost" onclick="window.toggleAnalytics()" title="analytics">&#9636;</a>
         <a class="btn btn-ghost" onclick="window.exportTxt()" title="export txt">&#8600;</a>
+        <a class="btn btn-ghost" onclick="window.exportPdf()" title="print pdf">&#128196;</a>
         <a class="btn btn-ghost" onclick="window.loadMyEntries()" title="refresh">&#8635;</a>
       </div>
     </div>
     <div class="entries" id="entries"></div>
+  </div>
+
+  <div class="surprise-card" id="surpriseCard">
+    <button class="surprise-close" onclick="window.closeSurprise()">&times;</button>
+    <div class="surprise-head">&#9733; featured entry</div>
+    <div class="surprise-body" id="surpriseBody"></div>
+    <div class="surprise-meta" id="surpriseMeta"></div>
   </div>
 
   <div class="page-footer">
@@ -455,6 +499,7 @@
 let allEntries = [];
 let addr = null;
 let connecting = false;
+let isMagazine = false, analyticsVisible = false, currentPrompt = 0, recognition = null, isRecording = false;
 
 document.getElementById('dateDisplay').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 (function(){ if (localStorage.getItem('gb-dark')==='1') document.body.classList.add('dark'); updateDarkToggle(); })();
@@ -541,6 +586,7 @@ function setEnabled(on){
   document.getElementById('titleInput').disabled=!on;
   document.getElementById('msgInput').disabled=!on;
   document.getElementById('submitBtn').disabled=!on;
+  document.getElementById('micBtn').disabled=!on;
   document.getElementById('aliasRow').style.display=on?'flex':'none';
   if (on) {
     document.getElementById('userLabel').textContent=addr.slice(0,6)+'...'+addr.slice(-4);
@@ -656,11 +702,14 @@ async function registerAlias(){
 // ── Render ──
 function renderEntries(msgs) {
   const el=document.getElementById('entries');
+  el.className = 'entries' + (isMagazine ? ' magazine' : '');
+  updateMood();
+  if (analyticsVisible) updateAnalytics(allEntries);
   const search=document.getElementById('searchInput').value.toLowerCase().trim();
   if (!msgs||!msgs.length){
     el.innerHTML = addr
       ? '<div class="empty-state"><span class="empty-symbol">~</span><div class="empty-title">No entries yet</div><div class="empty-line"></div><div class="empty-desc">write your first entry above &mdash;<br>it will live on the genlayer testnet</div></div>'
-      : '<div class="empty-state"><span class="empty-symbol">~</span><div class="empty-title">Not connected</div><div class="empty-line"></div><div class="empty-desc">connect your wallet to read &amp; write<br>your private on-chain journal</div></div>';
+      : '<div class="empty-state"><span class="empty-symbol">~</span><div class="empty-title">Not connected</div><div class="empty-line"></div><div class="empty-desc">connect your wallet to read &amp; write your private journal.<br>each wallet only sees its own entries &mdash; a fresh wallet starts empty.</div></div>';
     document.getElementById('msgCount').textContent='';
     return;
   }
@@ -743,6 +792,146 @@ function showToast(icon, msg, sub, duration) {
 }
 
 function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// ── Writing prompts ──
+const PROMPTS = [
+  'what made today different?',
+  'what are you grateful for right now?',
+  'describe a small moment you want to remember.',
+  'what is on your mind tonight?',
+  'what would you tell your past self?',
+  'what is one thing you learned today?',
+];
+function cyclePrompt(){
+  currentPrompt=(currentPrompt+1)%PROMPTS.length;
+  const inp=document.getElementById('msgInput'), p=document.getElementById('promptText');
+  if(p && !inp.value.trim()) p.textContent='“'+PROMPTS[currentPrompt]+'”';
+}
+document.getElementById('promptText').textContent='“'+PROMPTS[0]+'”';
+setInterval(cyclePrompt, 12000);
+
+// ── Draft autosave ──
+function saveDraft(){
+  const t=document.getElementById('titleInput').value.trim();
+  const b=document.getElementById('msgInput').value.trim();
+  if(t||b) localStorage.setItem('gb_draft', JSON.stringify({t,b}));
+  else localStorage.removeItem('gb_draft');
+}
+function restoreDraft(){
+  try{
+    const raw=localStorage.getItem('gb_draft'); if(!raw) return;
+    const d=JSON.parse(raw);
+    if(d.t) document.getElementById('titleInput').value=d.t;
+    if(d.b){ document.getElementById('msgInput').value=d.b; document.getElementById('charCount').textContent=d.b.length+' / 2000'; }
+  }catch(e){}
+}
+document.getElementById('titleInput').addEventListener('input', saveDraft);
+document.getElementById('msgInput').addEventListener('input', saveDraft);
+setInterval(saveDraft, 3000);
+restoreDraft();
+
+// ── Voice-to-text ──
+function toggleMic(){
+  const btn=document.getElementById('micBtn');
+  if(isRecording){ if(recognition) recognition.stop(); btn.classList.remove('recording'); isRecording=false; return; }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ showToast('!','voice not supported','try Chrome', 2500); return; }
+  recognition=new SR();
+  recognition.lang=navigator.language||'en-US';
+  recognition.continuous=false; recognition.interimResults=false;
+  recognition.onresult=function(e){
+    let final=''; for(let i=e.resultIndex;i<e.results.length;i++){ if(e.results[i].isFinal) final+=e.results[i][0].transcript+' '; }
+    const inp=document.getElementById('msgInput');
+    if(final){ inp.value+=final; document.getElementById('charCount').textContent=inp.value.length+' / 2000'; saveDraft(); }
+  };
+  recognition.onerror=function(){ btn.classList.remove('recording'); isRecording=false; };
+  recognition.onend=function(){ btn.classList.remove('recording'); isRecording=false; };
+  recognition.start(); btn.classList.add('recording'); isRecording=true;
+  showToast('○','listening...','speak now', 2000);
+}
+window.toggleMic=toggleMic;
+
+// ── Magazine view ──
+function toggleView(){ isMagazine=!isMagazine; renderEntries(allEntries); }
+window.toggleView=toggleView;
+
+// ── Surprise / featured ──
+function surpriseMe(){
+  if(!allEntries||!allEntries.length){ showToast('--','no entries yet','write one first', 2000); return; }
+  const p=allEntries[Math.floor(Math.random()*allEntries.length)];
+  document.getElementById('surpriseBody').textContent=p.content||'';
+  document.getElementById('surpriseMeta').textContent=p.timestamp?new Date(p.timestamp*1000).toLocaleString():'';
+  document.getElementById('surpriseCard').classList.add('show');
+  document.getElementById('surpriseCard').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+window.surpriseMe=surpriseMe;
+function closeSurprise(){ document.getElementById('surpriseCard').classList.remove('show'); }
+window.closeSurprise=closeSurprise;
+
+// ── Analytics ──
+function createAnalytics(){
+  const div=document.createElement('div'); div.id='analyticsBox'; div.className='analytics';
+  div.innerHTML='<div class="analytics-card"><div class="val" id="analTotalWords">0</div><div class="lbl">total words</div></div>'
+    +'<div class="analytics-card"><div class="val" id="analAvgLength">0</div><div class="lbl">avg chars</div></div>'
+    +'<div class="analytics-card"><div class="val" id="analLongest">0</div><div class="lbl">longest entry</div></div>'
+    +'<div class="analytics-card"><div class="val" id="analTopWord">—</div><div class="lbl">top word</div><div class="sub" id="analTopCount"></div></div>';
+  const entries=document.getElementById('entries');
+  entries.parentNode.insertBefore(div, entries);
+}
+function toggleAnalytics(){
+  analyticsVisible=!analyticsVisible;
+  if(!document.getElementById('analyticsBox')) createAnalytics();
+  document.getElementById('analyticsBox').classList.toggle('show', analyticsVisible);
+  if(analyticsVisible) updateAnalytics(allEntries);
+}
+window.toggleAnalytics=toggleAnalytics;
+function updateAnalytics(msgs){
+  if(!document.getElementById('analyticsBox')) return;
+  if(!msgs||!msgs.length){
+    ['analTotalWords','analAvgLength','analLongest'].forEach(id=>{ document.getElementById(id).textContent='0'; });
+    document.getElementById('analTopWord').textContent='—'; document.getElementById('analTopCount').textContent=''; return;
+  }
+  let total=0,longest=0,words={};
+  for(const m of msgs){
+    const c=(m.content||'').trim();
+    total+=c.split(/\s+/).filter(Boolean).length;
+    if(c.length>longest) longest=c.length;
+    c.toLowerCase().split(/\s+/).filter(Boolean).forEach(w=>{ w=w.replace(/[^a-z0-9]/g,''); if(w&&w.length>2) words[w]=(words[w]||0)+1; });
+  }
+  const avg=Math.round(msgs.reduce((s,m)=>s+(m.content||'').length,0)/msgs.length);
+  const sorted=Object.entries(words).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('analTotalWords').textContent=total;
+  document.getElementById('analAvgLength').textContent=avg;
+  document.getElementById('analLongest').textContent=longest;
+  if(sorted.length){ document.getElementById('analTopWord').textContent=sorted[0][0]; document.getElementById('analTopCount').textContent=sorted[0][1]+'x'; }
+}
+
+// ── Mood (computed client-side) ──
+const POS_WORDS=['awesome','amazing','great','love','happy','beautiful','wonderful','good','nice','calm','grateful','joy','peace','hope','bright','proud','excited','glad','content','thankful'];
+const NEG_WORDS=['bad','sad','awful','terrible','hate','tired','stressed','lonely','angry','worried','anxious','heavy','lost','broken','afraid','empty','hopeless','exhausted','overwhelmed'];
+function updateMood(){
+  const el=document.getElementById('tickerMood');
+  if(!el) return;
+  if(!allEntries||!allEntries.length){ el.textContent=''; return; }
+  let pos=0,neg=0;
+  for(const m of allEntries){
+    const w=new Set((m.content||'').toLowerCase().split(/\s+/).map(x=>x.replace(/[^a-z0-9]/g,'')));
+    POS_WORDS.forEach(x=>{ if(w.has(x)) pos++; });
+    NEG_WORDS.forEach(x=>{ if(w.has(x)) neg++; });
+  }
+  const t=pos+neg;
+  if(t===0){ el.textContent='reflective ◇'; return; }
+  const r=pos/t;
+  el.textContent = r>0.7?'joyful ☆':r>0.5?'bright ☆':r>0.3?'balanced —':r>0.1?'subdued ○':'heavy ○';
+}
+
+// ── Print / PDF ──
+function exportPdf(){
+  if(!allEntries.length){ showToast('--','no entries','', 2000); return; }
+  showToast('✓','opening print dialog...','', 1500);
+  setTimeout(()=>window.print(), 400);
+}
+window.exportPdf=exportPdf;
 
 renderEntries([]);
 </script>
